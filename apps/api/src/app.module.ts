@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { MCPModule } from './mcp/mcp.module';
+import { Module } from "@nestjs/common";
+import { MCPModule } from "./mcp/mcp.module";
 
 @Module({
-    imports: [MCPModule],
+  imports: [MCPModule],
 })
-export class AppModule { }
+export class AppModule {}

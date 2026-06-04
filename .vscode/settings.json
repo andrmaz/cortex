@@ -1,3 +1,4 @@
 {
-	"editor.fontFamily": ""
+	"editor.fontFamily": "",
+	"workbench.sideBar.location": "right"
 }
