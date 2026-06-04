@@ -1,16 +1,39 @@
 {
   "name": "db",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "type": "module",
+  "description": "Prisma schema and DB client for Cortex",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./generated/prisma/index.d.ts",
+      "default": "./generated/prisma/index.js"
+    }
+  },
   "scripts": {
+    "build": "prisma generate && tsc",
+    "check-types": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:validate": "prisma validate",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@prisma/client": "^7.8.0",
-    "prisma": "^7.8.0"
+    "@prisma/client": "^7.8.0"
+  },
+  "devDependencies": {
+    "@cortex/typescript-config": "workspace:*",
+    "prisma": "^7.8.0",
+    "typescript": "5.9.2"
   }
 }

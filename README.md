@@ -1,159 +1,122 @@
-# Turborepo starter
+# Cortex
 
-This Turborepo starter is maintained by the Turborepo core team.
+A TypeScript monorepo for an MCP-first context, policy, and audit platform.
 
-## Using this example
+## Getting Started
 
-Run the following command:
+### Prerequisites
 
-```sh
-npx create-turbo@latest
-```
+- Node.js >= 18
+- pnpm 9.x
+- Docker (for local development with PostgreSQL and Redis)
 
-## What's inside?
-
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+### Installation
 
 ```sh
-cd my-turborepo
-turbo build
+# Install dependencies
+pnpm install
+
+# Generate Prisma client (requires DATABASE_URL)
+DATABASE_URL="postgresql://cortex:cortex@localhost:5432/cortex" pnpm --filter db db:generate
 ```
 
-Without global `turbo`, use your package manager:
+### Development
+
+Start the development environment:
 
 ```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+# Start PostgreSQL and Redis
+docker-compose up -d
+
+# Run all apps in development mode
+pnpm dev
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Project Structure
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+### Apps
+
+- `apps/web` - Admin Web (Next.js)
+- `apps/docs` - Documentation site (Next.js)
+- `apps/api` - API + MCP entrypoint (NestJS)
+
+### Packages
+
+- `packages/db` - Prisma schema and database client
+- `packages/ui` - Shared React component library (`@cortex/ui`)
+- `packages/shared` - Shared types and utilities (`@cortex/shared`)
+- `packages/eslint-config` - ESLint configurations (`@cortex/eslint-config`)
+- `packages/typescript-config` - TypeScript configurations (`@cortex/typescript-config`)
+
+## Commands
 
 ```sh
-turbo build --filter=docs
+# Install dependencies
+pnpm install
+
+# Build all workspaces
+pnpm build
+
+# Type-check all workspaces
+pnpm check-types
+
+# Lint all workspaces
+pnpm lint
+
+# Format code
+pnpm format
+
+# Run dev servers
+pnpm dev
 ```
 
-Without global `turbo`:
+### Database Commands
 
 ```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+# Generate Prisma client
+pnpm --filter db db:generate
+
+# Validate Prisma schema
+pnpm --filter db db:validate
+
+# Create a new migration
+pnpm --filter db db:migrate
+
+# Apply pending migrations (production)
+pnpm --filter db db:migrate:deploy
 ```
 
-### Develop
+## Docker Services
 
-To develop all apps and packages, run the following command:
+The `docker-compose.yml` provides:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+- **PostgreSQL 16** - Available at `localhost:5432` (user: `cortex`, password: `cortex`, database: `cortex`)
+- **Redis 7** - Available at `localhost:6379`
+
+Start services:
 
 ```sh
-cd my-turborepo
-turbo dev
+docker-compose up -d
 ```
 
-Without global `turbo`, use your package manager:
+Stop services:
 
 ```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
+docker-compose down
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Tech Stack
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+- **Package Manager**: pnpm (workspace monorepo)
+- **Task Runner**: Turborepo
+- **Language**: TypeScript
+- **Web Framework**: Next.js 16
+- **API Framework**: NestJS
+- **Database**: PostgreSQL with Prisma ORM
+- **Cache**: Redis
+- **Linting**: ESLint
+- **Formatting**: Prettier
 
-```sh
-turbo dev --filter=web
-```
+## License
 
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+ISC

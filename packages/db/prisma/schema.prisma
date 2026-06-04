@@ -1,7 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Prisma schema for Cortex - MCP-first context, policy, and audit platform
+// Learn more: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client"
@@ -12,47 +10,186 @@ datasource db {
   provider = "postgresql"
 }
 
+// ============================================================================
+// Core Identity Models
+// ============================================================================
+
+/// A tenant boundary representing one customer company.
 model Organization {
   id        String   @id @default(uuid())
   name      String
-  users     User[]
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users       User[]
+  departments Department[]
+  sources     Source[]
+  policies    Policy[]
+
+  @@map("organizations")
 }
 
+/// An authenticated human identity belonging to one Organization.
 model User {
-  id             String       @id @default(uuid())
-  email          String       @unique
-  googleSub      String       @unique
+  id             String   @id @default(uuid())
+  email          String   @unique
+  googleSub      String   @unique @map("google_sub")
   role           String
-  departmentId   String?
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organizationId String   @map("organization_id")
+
+  // Relations
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userDepartments UserDepartment[]
+  queryLogs       QueryLog[]
+
+  // Indexes for common query patterns
+  @@index([organizationId])
+  @@index([email])
+  @@map("users")
 }
 
+/// A policy scope within an Organization that groups users by function.
 model Department {
-  id             String @id @default(uuid())
+  id             String   @id @default(uuid())
   name           String
-  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organizationId String   @map("organization_id")
+
+  // Relations
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userDepartments UserDepartment[]
+  policies        Policy[]
+
+  // Unique department name per organization
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("departments")
 }
 
+/// Join table mapping Users to Departments with primary department designation.
+/// A User can belong to multiple Departments, with exactly one marked as primary.
+model UserDepartment {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  departmentId String   @map("department_id")
+  isPrimary    Boolean  @default(false) @map("is_primary")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  // Ensure unique user-department pairs
+  @@unique([userId, departmentId])
+  @@index([userId])
+  @@index([departmentId])
+  @@map("user_departments")
+}
+
+// ============================================================================
+// Knowledge and Retrieval Models
+// ============================================================================
+
+/// A configured upstream knowledge origin (upload, Slack, Confluence, etc.)
+model Source {
+  id             String   @id @default(uuid())
+  name           String
+  type           String
+  config         Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organizationId String   @map("organization_id")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documents    Document[]
+
+  @@index([organizationId])
+  @@map("sources")
+}
+
+/// A normalized unit of source content stored for retrieval.
 model Document {
   id        String   @id @default(uuid())
-  source    String
+  sourceId  String   @map("source_id")
   content   String
+  metadata  Json     @default("{}")
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  source Source  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  chunks Chunk[]
+
+  @@index([sourceId])
+  @@map("documents")
 }
 
+/// A retrievable segment of a Document used in similarity search.
+model Chunk {
+  id         String   @id @default(uuid())
+  documentId String   @map("document_id")
+  content    String
+  embedding  Bytes?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  // Relations
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("chunks")
+}
+
+// ============================================================================
+// Policy and Governance Models
+// ============================================================================
+
+/// A versioned department-scoped rule set that controls query and response behavior.
 model Policy {
-  id             String @id @default(uuid())
-  organizationId String
-  departmentId   String
-  rulesJson      Json
+  id             String   @id @default(uuid())
+  version        Int      @default(1)
+  rulesJson      Json     @map("rules_json")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organizationId String   @map("organization_id")
+  departmentId   String   @map("department_id")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department   Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, departmentId, version])
+  @@index([organizationId])
+  @@index([departmentId])
+  @@index([isActive])
+  @@map("policies")
 }
 
+// ============================================================================
+// Audit Models
+// ============================================================================
+
+/// An immutable record of query input, context usage, policy decisions, and output metadata.
 model QueryLog {
-  id        String   @id @default(uuid())
-  userId    String
-  query     String
-  response  String
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  query          String
+  contextBundle  Json?    @map("context_bundle")
+  policyDecision Json?    @map("policy_decision")
+  response       String?
+  createdAt      DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("query_logs")
 }
