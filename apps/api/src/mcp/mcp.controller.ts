@@ -1,9 +1,5 @@
 import { Controller, Post, Body } from "@nestjs/common";
-
-interface MCPRequestBody {
-  query: string;
-  userId: string;
-}
+import type { MCPRequest } from "@cortex/shared";
 
 interface MCPResponse {
   context: string[];
@@ -16,7 +12,7 @@ interface MCPResponse {
 @Controller("mcp")
 export class MCPController {
   @Post()
-  async handleMCP(@Body() body: MCPRequestBody): Promise<MCPResponse> {
+  async handleMCP(@Body() body: MCPRequest): Promise<MCPResponse> {
     const { query } = body;
 
     // STEP 2: mock policy
