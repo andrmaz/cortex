@@ -138,6 +138,12 @@ CREATE INDEX "user_departments_user_id_idx" ON "user_departments"("user_id");
 -- CreateIndex: user_departments by department
 CREATE INDEX "user_departments_department_id_idx" ON "user_departments"("department_id");
 
+-- CreateIndex: enforce exactly one primary department per user (business rule from UBIQUITOUS_LANGUAGE.md)
+-- "A User is mapped to one or more Departments, with one Primary Department"
+CREATE UNIQUE INDEX "user_departments_one_primary_per_user"
+  ON "user_departments"("user_id")
+  WHERE "is_primary" = true;
+
 -- CreateIndex: sources by organization
 CREATE INDEX "sources_organization_id_idx" ON "sources"("organization_id");
 

@@ -88,6 +88,8 @@ model UserDepartment {
   @@unique([userId, departmentId])
   @@index([userId])
   @@index([departmentId])
+  // Note: Unique partial index "user_departments_one_primary_per_user" enforces
+  // one primary department per user (see migration SQL)
   @@map("user_departments")
 }
 
