@@ -10,7 +10,7 @@
     "start": "nest start",
     "start:prod": "node dist/main",
     "lint": "eslint . --max-warnings 0",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
@@ -29,9 +29,13 @@
     "@cortex/eslint-config": "workspace:*",
     "@cortex/typescript-config": "workspace:*",
     "@nestjs/cli": "^11.0.21",
+    "@nestjs/testing": "^11.1.24",
     "@types/express": "^5.0.3",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.15.3",
     "eslint": "^9.39.1",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
     "typescript": "5.9.2"
   }
 }
