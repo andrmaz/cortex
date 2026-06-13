@@ -18,6 +18,15 @@ class MockPrismaService {
 }
 
 describe("AppModule", () => {
+  beforeAll(() => {
+    // AuthModule.registerAsync and JwtStrategy both require JWT_SECRET at startup.
+    process.env["JWT_SECRET"] = "test-secret-for-app-module-spec";
+  });
+
+  afterAll(() => {
+    delete process.env["JWT_SECRET"];
+  });
+
   it("should be defined and compile successfully", async () => {
     const module = await Test.createTestingModule({
       imports: [AppModule],
@@ -77,6 +86,8 @@ describe("AppModule", () => {
       query: "integration check",
     });
 
-    expect(response.answer).toBe("Based on company standards: integration check");
+    expect(response.answer).toBe(
+      "Based on company standards: integration check",
+    );
   });
 });

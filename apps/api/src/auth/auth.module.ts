@@ -10,9 +10,14 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: "jwt" }),
-    JwtModule.register({
-      secret: process.env["JWT_SECRET"] ?? "changeme-dev-secret",
-      signOptions: { expiresIn: "8h" },
+    JwtModule.registerAsync({
+      useFactory: () => {
+        const secret = process.env["JWT_SECRET"];
+        if (!secret) {
+          throw new Error("JWT_SECRET environment variable is required");
+        }
+        return { secret, signOptions: { expiresIn: "8h" } };
+      },
     }),
   ],
   controllers: [AuthController, MeController],

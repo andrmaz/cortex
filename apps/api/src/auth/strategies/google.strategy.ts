@@ -24,19 +24,20 @@ export class GoogleStrategy extends PassportStrategy(Strategy, "google") {
     profile: Profile,
     done: VerifyCallback,
   ): void {
-    const email = profile.emails?.[0]?.value;
+    // Require a verified email address – unverified emails must not be used
+    // for identity or domain-based org matching.
+    const verifiedEmail = profile.emails?.find((e) => e.verified === true)
+      ?.value;
 
-    if (!email) {
-      done(new Error("No email returned from Google"), undefined);
+    if (!verifiedEmail) {
+      done(new Error("No verified email returned from Google"), undefined);
       return;
     }
 
-    // The actual user lookup / provisioning happens in the controller after
-    // the strategy succeeds.  We forward the raw profile so the controller
-    // can call the DB and issue a JWT.
+    // Forward the raw profile to the controller for DB upsert + JWT issuance.
     const user: AuthenticatedUser & { googleSub: string } = {
       id: "",
-      email,
+      email: verifiedEmail,
       googleSub: profile.id,
       organizationId: "",
       role: "member",

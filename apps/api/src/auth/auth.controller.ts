@@ -38,7 +38,9 @@ export class AuthController {
 
   /**
    * Google calls back here after the user grants consent.
-   * We upsert the user, issue a JWT, and return it.
+   * findOrCreate throws UnauthorizedException when no organization is
+   * provisioned for the user's email domain, so a JWT is only issued after
+   * a valid organizationId is confirmed.
    */
   @Get("google/callback")
   @UseGuards(GoogleAuthGuard)

@@ -14,6 +14,15 @@ describe("JwtStrategy", () => {
     delete process.env["JWT_SECRET"];
   });
 
+  describe("constructor", () => {
+    it("throws when JWT_SECRET is missing", () => {
+      delete process.env["JWT_SECRET"];
+      expect(() => new JwtStrategy()).toThrow(
+        "JWT_SECRET environment variable is required",
+      );
+    });
+  });
+
   describe("validate", () => {
     const validPayload: JwtPayload = {
       sub: "user-1",
