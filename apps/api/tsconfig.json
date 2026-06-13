@@ -8,7 +8,11 @@
 		"experimentalDecorators": true,
 		"emitDecoratorMetadata": true,
 		"skipLibCheck": true,
-		"outDir": "dist"
+		"outDir": "dist",
+		"paths": {
+			"db/client": ["../../packages/db/generated/prisma/client.ts"],
+			"db": ["../../packages/db/src/index.ts"]
+		}
 	},
 	"include": ["src/**/*.ts"],
 	"exclude": ["node_modules", "dist"]

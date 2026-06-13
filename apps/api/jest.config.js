@@ -24,5 +24,7 @@ module.exports = {
   testEnvironment: "node",
   moduleNameMapper: {
     "^@cortex/shared$": "<rootDir>/../../../packages/shared/src/index.ts",
+    "^db/client$": "<rootDir>/__mocks__/db-client.mock.ts",
+    "^db$": "<rootDir>/__mocks__/db-client.mock.ts",
   },
 };
