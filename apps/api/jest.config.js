@@ -23,6 +23,6 @@ module.exports = {
   coverageDirectory: "../coverage",
   testEnvironment: "node",
   moduleNameMapper: {
-    "^@cortex/shared$": "<rootDir>/../../packages/shared/src/index.ts",
+    "^@cortex/shared$": "<rootDir>/../../../packages/shared/src/index.ts",
   },
 };
