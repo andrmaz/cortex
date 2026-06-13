@@ -22,8 +22,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:validate": "prisma validate",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "db:validate": "prisma validate"
   },
   "keywords": [],
   "author": "",

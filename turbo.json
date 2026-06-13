@@ -13,6 +13,10 @@
     "check-types": {
       "dependsOn": ["^check-types"]
     },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "**/*.spec.ts", "**/*.test.ts"]
+    },
     "dev": {
       "cache": false,
       "persistent": true
