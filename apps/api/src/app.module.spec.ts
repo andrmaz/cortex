@@ -3,6 +3,7 @@ import { AppModule } from "./app.module";
 import { MCPController } from "./mcp/mcp.controller";
 import { GoogleStrategy } from "./auth/strategies/google.strategy";
 import { PrismaService } from "./prisma/prisma.service";
+import type { AuthenticatedUser } from "./auth/auth.types";
 
 /** Stub that replaces GoogleStrategy so tests don't need real OAuth credentials. */
 class MockGoogleStrategy {
@@ -15,6 +16,19 @@ class MockPrismaService {
   $disconnect = jest.fn().mockResolvedValue(undefined);
   user = { findUnique: jest.fn(), create: jest.fn() };
   organization = { findFirst: jest.fn() };
+  userDepartment = { findFirst: jest.fn().mockResolvedValue(null) };
+}
+
+const mockJwtUser: AuthenticatedUser = {
+  id: "test_user",
+  email: "test@example.com",
+  organizationId: "test_org",
+  role: "member",
+};
+
+function makeMockReq(user: AuthenticatedUser = mockJwtUser) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { user } as any;
 }
 
 describe("AppModule", () => {
@@ -79,12 +93,10 @@ describe("AppModule", () => {
       .compile();
 
     const controller = module.get(MCPController);
-    const response = await controller.handleMCP({
-      userId: "test_user",
-      organizationId: "test_org",
-      departmentId: "test_dept",
-      query: "integration check",
-    });
+    const response = await controller.handleMCP(
+      { query: "integration check" },
+      makeMockReq(),
+    );
 
     expect(response.answer).toBe(
       "Based on company standards: integration check",
