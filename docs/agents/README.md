@@ -16,6 +16,7 @@ docs/
     api.md
     web.md
     db.md
+    cursor-cloud.md
     deletion-candidates.md
 ```
 
@@ -29,4 +30,5 @@ docs/
 - API-specific guidance: [`api.md`](./api.md)
 - Web-specific guidance: [`web.md`](./web.md)
 - DB-specific guidance: [`db.md`](./db.md)
+- Cursor Cloud setup and run caveats: [`cursor-cloud.md`](./cursor-cloud.md)
 - Prior guidance flagged for deletion: [`deletion-candidates.md`](./deletion-candidates.md)
