@@ -17,6 +17,9 @@ export const mockPrismaClient = {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
   },
+  userDepartment: {
+    findFirst: jest.fn(),
+  },
 };
 
 export class PrismaClient {
@@ -24,6 +27,7 @@ export class PrismaClient {
   $disconnect = mockPrismaClient.$disconnect;
   user = mockPrismaClient.user;
   organization = mockPrismaClient.organization;
+  userDepartment = mockPrismaClient.userDepartment;
 }
 
 export const Prisma = {};

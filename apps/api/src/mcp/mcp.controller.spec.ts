@@ -1,31 +1,119 @@
 import { MCPController } from "./mcp.controller";
-import type { MCPRequest } from "@cortex/shared";
+import { IdentityService } from "./identity.service";
+import type { AuthenticatedUser } from "../auth/auth.types";
+
+const mockUser: AuthenticatedUser = {
+  id: "user_123",
+  email: "alice@example.com",
+  organizationId: "org_456",
+  role: "member",
+};
+
+function makeReq(user: AuthenticatedUser = mockUser) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { user } as any;
+}
 
 describe("MCPController", () => {
   let controller: MCPController;
+  let identityService: jest.Mocked<IdentityService>;
 
   beforeEach(() => {
-    controller = new MCPController();
+    identityService = {
+      resolveScope: jest.fn().mockResolvedValue({
+        organizationId: "org_456",
+        departmentId: "dept_789",
+      }),
+    } as unknown as jest.Mocked<IdentityService>;
+
+    controller = new MCPController(identityService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   describe("handleMCP", () => {
-    const validRequest: MCPRequest = {
-      userId: "user_123",
-      organizationId: "org_456",
-      departmentId: "dept_789",
-      query: "What is the coding standard?",
-    };
+    it("returns a response with scope, context, policy, and answer", async () => {
+      const result = await controller.handleMCP(
+        { query: "What is the coding standard?" },
+        makeReq(),
+      );
 
-    it("should return a response with context, policy, and answer", async () => {
-      const result = await controller.handleMCP(validRequest);
-
+      expect(result).toHaveProperty("scope");
       expect(result).toHaveProperty("context");
       expect(result).toHaveProperty("policy");
       expect(result).toHaveProperty("answer");
     });
 
-    it("should return the fixed context array with company architecture entries", async () => {
-      const result = await controller.handleMCP(validRequest);
+    it("delegates identity resolution to IdentityService with userId and organizationId from req.user", async () => {
+      await controller.handleMCP(
+        { query: "test" },
+        makeReq(mockUser),
+      );
+
+      expect(identityService.resolveScope).toHaveBeenCalledWith(
+        mockUser.id,
+        mockUser.organizationId,
+      );
+    });
+
+    it("includes the resolved organizationId and departmentId in scope", async () => {
+      identityService.resolveScope.mockResolvedValueOnce({
+        organizationId: "org_abc",
+        departmentId: "dept_xyz",
+      });
+
+      const result = await controller.handleMCP(
+        { query: "test" },
+        makeReq({ ...mockUser, organizationId: "org_abc" }),
+      );
+
+      expect(result.scope).toEqual({
+        organizationId: "org_abc",
+        departmentId: "dept_xyz",
+      });
+    });
+
+    it("returns null departmentId when user has no primary department", async () => {
+      identityService.resolveScope.mockResolvedValueOnce({
+        organizationId: "org_456",
+        departmentId: null,
+      });
+
+      const result = await controller.handleMCP(
+        { query: "test" },
+        makeReq(),
+      );
+
+      expect(result.scope.departmentId).toBeNull();
+    });
+
+    it("includes the query verbatim in the answer", async () => {
+      const result = await controller.handleMCP(
+        { query: "How do I structure my service layer?" },
+        makeReq(),
+      );
+
+      expect(result.answer).toBe(
+        "Based on company standards: How do I structure my service layer?",
+      );
+    });
+
+    it("prefixes the answer with 'Based on company standards: '", async () => {
+      const result = await controller.handleMCP(
+        { query: "any question" },
+        makeReq(),
+      );
+
+      expect(result.answer).toMatch(/^Based on company standards: /);
+    });
+
+    it("returns the stub context array", async () => {
+      const result = await controller.handleMCP(
+        { query: "test" },
+        makeReq(),
+      );
 
       expect(result.context).toEqual([
         "Company uses modular monolith architecture",
@@ -33,183 +121,104 @@ describe("MCPController", () => {
       ]);
     });
 
-    it("should return exactly two context entries", async () => {
-      const result = await controller.handleMCP(validRequest);
-
-      expect(result.context).toHaveLength(2);
-    });
-
-    it("should return the fixed policy with TypeScript and clean architecture rules", async () => {
-      const result = await controller.handleMCP(validRequest);
+    it("returns the stub policy with TypeScript and clean architecture rules", async () => {
+      const result = await controller.handleMCP(
+        { query: "test" },
+        makeReq(),
+      );
 
       expect(result.policy).toEqual({
         rules: ["Use TypeScript", "Follow clean architecture"],
       });
     });
 
-    it("should return policy rules as an array with exactly two entries", async () => {
-      const result = await controller.handleMCP(validRequest);
-
-      expect(result.policy.rules).toHaveLength(2);
-      expect(Array.isArray(result.policy.rules)).toBe(true);
-    });
-
-    it("should include the query in the answer using the expected format", async () => {
-      const result = await controller.handleMCP(validRequest);
-
-      expect(result.answer).toBe(
-        "Based on company standards: What is the coding standard?"
+    it("returns a Promise (async method)", () => {
+      const returnValue = controller.handleMCP(
+        { query: "test" },
+        makeReq(),
       );
+
+      expect(returnValue).toBeInstanceOf(Promise);
     });
 
-    it("should prefix the answer with 'Based on company standards: '", async () => {
-      const result = await controller.handleMCP(validRequest);
-
-      expect(result.answer).toMatch(/^Based on company standards: /);
-    });
-
-    it("should reflect the query verbatim in the answer", async () => {
-      const query = "How do I structure my service layer?";
-      const result = await controller.handleMCP({ ...validRequest, query });
-
-      expect(result.answer).toBe(`Based on company standards: ${query}`);
-    });
-
-    it("should handle an empty query string", async () => {
-      const result = await controller.handleMCP({ ...validRequest, query: "" });
+    it("handles an empty query string", async () => {
+      const result = await controller.handleMCP({ query: "" }, makeReq());
 
       expect(result.answer).toBe("Based on company standards: ");
       expect(result.context).toHaveLength(2);
       expect(result.policy.rules).toHaveLength(2);
     });
 
-    it("should handle a query with special characters", async () => {
+    it("handles a query with special characters", async () => {
       const specialQuery = 'What about "quotes" & <angle> brackets?';
-      const result = await controller.handleMCP({
-        ...validRequest,
-        query: specialQuery,
-      });
+      const result = await controller.handleMCP(
+        { query: specialQuery },
+        makeReq(),
+      );
 
       expect(result.answer).toBe(`Based on company standards: ${specialQuery}`);
     });
 
-    it("should handle a query with newlines and whitespace", async () => {
-      const multilineQuery = "First line\nSecond line\t tabbed";
-      const result = await controller.handleMCP({
-        ...validRequest,
-        query: multilineQuery,
-      });
+    it("calls resolveScope once per request", async () => {
+      await controller.handleMCP({ query: "a" }, makeReq());
+      await controller.handleMCP({ query: "b" }, makeReq());
 
-      expect(result.answer).toBe(
-        `Based on company standards: ${multilineQuery}`
+      expect(identityService.resolveScope).toHaveBeenCalledTimes(2);
+    });
+
+    it("passes different users to resolveScope correctly", async () => {
+      const userA: AuthenticatedUser = {
+        id: "user_aaa",
+        email: "a@example.com",
+        organizationId: "org_111",
+        role: "member",
+      };
+      const userB: AuthenticatedUser = {
+        id: "user_bbb",
+        email: "b@example.com",
+        organizationId: "org_222",
+        role: "admin",
+      };
+
+      await controller.handleMCP({ query: "q" }, makeReq(userA));
+      await controller.handleMCP({ query: "q" }, makeReq(userB));
+
+      expect(identityService.resolveScope).toHaveBeenNthCalledWith(
+        1,
+        "user_aaa",
+        "org_111",
+      );
+      expect(identityService.resolveScope).toHaveBeenNthCalledWith(
+        2,
+        "user_bbb",
+        "org_222",
       );
     });
 
-    it("should not use userId in the response", async () => {
-      const resultA = await controller.handleMCP({
-        ...validRequest,
-        userId: "user_aaa",
-      });
-      const resultB = await controller.handleMCP({
-        ...validRequest,
-        userId: "user_bbb",
-      });
-
-      expect(resultA.answer).toBe(resultB.answer);
-      expect(resultA.context).toEqual(resultB.context);
-      expect(resultA.policy).toEqual(resultB.policy);
-    });
-
-    it("should not use organizationId in the response", async () => {
-      const resultA = await controller.handleMCP({
-        ...validRequest,
-        organizationId: "org_111",
-      });
-      const resultB = await controller.handleMCP({
-        ...validRequest,
-        organizationId: "org_999",
-      });
-
-      expect(resultA.answer).toBe(resultB.answer);
-      expect(resultA.context).toEqual(resultB.context);
-      expect(resultA.policy).toEqual(resultB.policy);
-    });
-
-    it("should not use departmentId in the response", async () => {
-      const resultA = await controller.handleMCP({
-        ...validRequest,
-        departmentId: "dept_aaa",
-      });
-      const resultB = await controller.handleMCP({
-        ...validRequest,
-        departmentId: "dept_zzz",
-      });
-
-      expect(resultA.answer).toBe(resultB.answer);
-      expect(resultA.context).toEqual(resultB.context);
-      expect(resultA.policy).toEqual(resultB.policy);
-    });
-
-    it("should return consistent context regardless of query", async () => {
-      const result1 = await controller.handleMCP({
-        ...validRequest,
-        query: "query one",
-      });
-      const result2 = await controller.handleMCP({
-        ...validRequest,
-        query: "query two",
-      });
-
-      expect(result1.context).toEqual(result2.context);
-    });
-
-    it("should return consistent policy regardless of query", async () => {
-      const result1 = await controller.handleMCP({
-        ...validRequest,
-        query: "query one",
-      });
-      const result2 = await controller.handleMCP({
-        ...validRequest,
-        query: "completely different query",
-      });
-
-      expect(result1.policy).toEqual(result2.policy);
-    });
-
-    it("should return a Promise (async method)", () => {
-      const returnValue = controller.handleMCP(validRequest);
-
-      expect(returnValue).toBeInstanceOf(Promise);
-    });
-
-    it("should return context as an array of strings", async () => {
-      const result = await controller.handleMCP(validRequest);
-
-      result.context.forEach((item) => {
-        expect(typeof item).toBe("string");
-      });
-    });
-
-    it("should return policy rules as an array of strings", async () => {
-      const result = await controller.handleMCP(validRequest);
-
-      result.policy.rules.forEach((rule) => {
-        expect(typeof rule).toBe("string");
-      });
-    });
-
-    it("should return answer as a string", async () => {
-      const result = await controller.handleMCP(validRequest);
+    it("returns answer as a string", async () => {
+      const result = await controller.handleMCP({ query: "test" }, makeReq());
 
       expect(typeof result.answer).toBe("string");
     });
 
-    it("should handle a very long query string", async () => {
+    it("returns context as an array of strings", async () => {
+      const result = await controller.handleMCP({ query: "test" }, makeReq());
+
+      result.context.forEach((item) => expect(typeof item).toBe("string"));
+    });
+
+    it("returns policy rules as an array of strings", async () => {
+      const result = await controller.handleMCP({ query: "test" }, makeReq());
+
+      result.policy.rules.forEach((rule) => expect(typeof rule).toBe("string"));
+    });
+
+    it("handles a very long query string", async () => {
       const longQuery = "A".repeat(10000);
-      const result = await controller.handleMCP({
-        ...validRequest,
-        query: longQuery,
-      });
+      const result = await controller.handleMCP(
+        { query: longQuery },
+        makeReq(),
+      );
 
       expect(result.answer).toBe(`Based on company standards: ${longQuery}`);
     });
