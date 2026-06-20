@@ -20,13 +20,20 @@ const mockPrismaService = {
 };
 
 describe("MCPModule", () => {
+  let previousJwtSecret: string | undefined;
+
   beforeAll(() => {
+    previousJwtSecret = process.env["JWT_SECRET"];
     // JwtStrategy and JwtModule.registerAsync require JWT_SECRET at startup.
     process.env["JWT_SECRET"] = "test-secret-for-mcp-module-spec";
   });
 
   afterAll(() => {
-    delete process.env["JWT_SECRET"];
+    if (previousJwtSecret === undefined) {
+      delete process.env["JWT_SECRET"];
+    } else {
+      process.env["JWT_SECRET"] = previousJwtSecret;
+    }
   });
 
   it("should be defined and compile successfully", async () => {
@@ -52,7 +59,7 @@ describe("MCPModule", () => {
         .overrideProvider(PrismaService)
         .useValue(mockPrismaService)
         .compile(),
-    ).resolves.not.toThrow();
+    ).resolves.toBeDefined();
   });
 
   it("should provide MCPController", async () => {

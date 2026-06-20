@@ -7,7 +7,7 @@ function makeMockPrisma() {
     userDepartment: {
       findFirst: jest.fn(),
     },
-  } as unknown as jest.Mocked<PrismaService>;
+  };
 }
 
 describe("IdentityService", () => {
@@ -16,7 +16,7 @@ describe("IdentityService", () => {
 
   beforeEach(() => {
     prisma = makeMockPrisma();
-    service = new IdentityService(prisma);
+    service = new IdentityService(prisma as unknown as PrismaService);
   });
 
   afterEach(() => {
@@ -51,13 +51,17 @@ describe("IdentityService", () => {
       });
     });
 
-    it("queries userDepartment with userId and isPrimary: true", async () => {
+    it("queries userDepartment with userId, isPrimary: true, and organization constraint", async () => {
       prisma.userDepartment.findFirst.mockResolvedValueOnce(null);
 
       await service.resolveScope("user_abc", "org_xyz");
 
       expect(prisma.userDepartment.findFirst).toHaveBeenCalledWith({
-        where: { userId: "user_abc", isPrimary: true },
+        where: {
+          userId: "user_abc",
+          isPrimary: true,
+          department: { organizationId: "org_xyz" },
+        },
       });
     });
 
@@ -170,7 +174,11 @@ describe("IdentityService", () => {
       expect(result.departmentId).toBeNull();
       expect(result.organizationId).toBe("org_456");
       expect(prisma.userDepartment.findFirst).toHaveBeenCalledWith({
-        where: { userId: "", isPrimary: true },
+        where: {
+          userId: "",
+          isPrimary: true,
+          department: { organizationId: "org_456" },
+        },
       });
     });
 

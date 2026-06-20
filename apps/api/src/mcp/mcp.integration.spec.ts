@@ -39,8 +39,10 @@ function issueToken(
 
 describe("MCP Integration", () => {
   let app: INestApplication;
+  let previousJwtSecret: string | undefined;
 
   beforeAll(async () => {
+    previousJwtSecret = process.env["JWT_SECRET"];
     process.env["JWT_SECRET"] = TEST_JWT_SECRET;
 
     const moduleRef = await Test.createTestingModule({
@@ -58,7 +60,11 @@ describe("MCP Integration", () => {
 
   afterAll(async () => {
     await app.close();
-    delete process.env["JWT_SECRET"];
+    if (previousJwtSecret === undefined) {
+      delete process.env["JWT_SECRET"];
+    } else {
+      process.env["JWT_SECRET"] = previousJwtSecret;
+    }
   });
 
   beforeEach(() => {

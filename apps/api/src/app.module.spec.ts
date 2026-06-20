@@ -64,7 +64,7 @@ describe("AppModule", () => {
         .overrideProvider(PrismaService)
         .useClass(MockPrismaService)
         .compile(),
-    ).resolves.not.toThrow();
+    ).resolves.toBeDefined();
   });
 
   it("should provide MCPController via imported MCPModule", async () => {
