@@ -1,0 +1,72 @@
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
+import { PrismaService } from "../../prisma/prisma.service";
+import type { Organization } from "db/client";
+import type {
+  CreateOrganizationDto,
+  UpdateOrganizationDto,
+} from "./organization.dto";
+
+function isPrismaUniqueConstraintError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: string }).code === "P2002"
+  );
+}
+
+@Injectable()
+export class OrganizationService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findAll(): Promise<Organization[]> {
+    return this.prisma.organization.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async findOne(id: string): Promise<Organization> {
+    const org = await this.prisma.organization.findUnique({ where: { id } });
+    if (!org) {
+      throw new NotFoundException(`Organization with id "${id}" not found`);
+    }
+    return org;
+  }
+
+  async create(dto: CreateOrganizationDto): Promise<Organization> {
+    try {
+      return await this.prisma.organization.create({
+        data: { name: dto.name },
+      });
+    } catch (err) {
+      if (isPrismaUniqueConstraintError(err)) {
+        throw new ConflictException(
+          `Organization with name "${dto.name}" already exists`,
+        );
+      }
+      throw err;
+    }
+  }
+
+  async update(id: string, dto: UpdateOrganizationDto): Promise<Organization> {
+    await this.findOne(id);
+
+    try {
+      return await this.prisma.organization.update({
+        where: { id },
+        data: { ...(dto.name !== undefined && { name: dto.name }) },
+      });
+    } catch (err) {
+      if (isPrismaUniqueConstraintError(err)) {
+        throw new ConflictException(
+          `Organization with name "${dto.name}" already exists`,
+        );
+      }
+      throw err;
+    }
+  }
+}
