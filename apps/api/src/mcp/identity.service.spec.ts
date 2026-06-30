@@ -1,5 +1,5 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import { IdentityService } from "./identity.service";
-import type { PrismaService } from "../prisma/prisma.service";
 
 /** Minimal mock shape for PrismaService covering only what IdentityService uses. */
 function makeMockPrisma() {
@@ -16,7 +16,7 @@ describe("IdentityService", () => {
 
   beforeEach(() => {
     prisma = makeMockPrisma();
-    service = new IdentityService(prisma as unknown as PrismaService);
+    service = new IdentityService(fromAny(prisma));
   });
 
   afterEach(() => {
