@@ -1,6 +1,10 @@
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
+import type { Request } from "express";
 import { MCPController } from "./mcp.controller";
 import { IdentityService } from "./identity.service";
 import type { AuthenticatedUser } from "../auth/auth.types";
+
+type RequestWithJwtUser = Request & { user: AuthenticatedUser };
 
 const mockUser: AuthenticatedUser = {
   id: "user_123",
@@ -9,9 +13,8 @@ const mockUser: AuthenticatedUser = {
   role: "member",
 };
 
-function makeReq(user: AuthenticatedUser = mockUser) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { user } as any;
+function makeReq(user: AuthenticatedUser = mockUser): RequestWithJwtUser {
+  return fromAny({ user });
 }
 
 describe("MCPController", () => {
@@ -19,12 +22,12 @@ describe("MCPController", () => {
   let identityService: jest.Mocked<IdentityService>;
 
   beforeEach(() => {
-    identityService = {
+    identityService = fromPartial<jest.Mocked<IdentityService>>({
       resolveScope: jest.fn().mockResolvedValue({
         organizationId: "org_456",
         departmentId: "dept_789",
       }),
-    } as unknown as jest.Mocked<IdentityService>;
+    });
 
     controller = new MCPController(identityService);
   });

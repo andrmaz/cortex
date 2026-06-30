@@ -82,6 +82,9 @@ importers:
       '@nestjs/testing':
         specifier: ^11.1.24
         version: 11.1.24(@nestjs/common@11.1.21(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.21(@nestjs/common@11.1.21(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.21)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.21(@nestjs/common@11.1.21(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.21))
+      '@total-typescript/shoehorn':
+        specifier: ^0.1.2
+        version: 0.1.2
       '@types/express':
         specifier: ^5.0.3
         version: 5.0.6
@@ -253,6 +256,9 @@ importers:
       '@cortex/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      '@total-typescript/shoehorn':
+        specifier: ^0.1.2
+        version: 0.1.2
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
@@ -1322,6 +1328,9 @@ packages:
 
   '@tokenizer/token@0.3.0':
     resolution: {integrity: sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A==}
+
+  '@total-typescript/shoehorn@0.1.2':
+    resolution: {integrity: sha512-p7nNZbOZIofpDNyP0u1BctFbjxD44Qc+oO5jufgQdFdGIXJLc33QRloJpq7k5T59CTgLWfQSUxsuqLcmeurYRw==}
 
   '@turbo/darwin-64@2.9.14':
     resolution: {integrity: sha512-t7QiPflaEyBE4oayeZtSmu4mEfjgIrcNlNNl1z1dmIVPqEdtA7+CfTf8d7KXsOGPh6aNgWjKxyvQg9uGfDQF+A==}
@@ -5481,6 +5490,8 @@ snapshots:
       - supports-color
 
   '@tokenizer/token@0.3.0': {}
+
+  '@total-typescript/shoehorn@0.1.2': {}
 
   '@turbo/darwin-64@2.9.14':
     optional: true
