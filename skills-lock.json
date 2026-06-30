@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "migrate-to-shoehorn": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/misc/migrate-to-shoehorn/SKILL.md",
+      "computedHash": "67fdd18f8f4f7c89b3003eb944220679272738c1deb680719fd2e282495d87f4"
+    },
     "next-best-practices": {
       "source": "vercel-labs/next-skills",
       "sourceType": "github",
