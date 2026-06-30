@@ -168,6 +168,18 @@ describe("OrganizationService", () => {
       ).rejects.toThrow(ConflictException);
     });
 
+    it("throws NotFoundException on P2025 concurrent-delete race during update", async () => {
+      const p2025 = Object.assign(new Error("Record not found"), {
+        code: "P2025",
+      });
+      mockPrisma.organization.findUnique.mockResolvedValue(mockOrg);
+      mockPrisma.organization.update.mockRejectedValue(p2025);
+
+      await expect(service.update("org-1", { name: "new.com" })).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
     it("applies no data update when dto is empty", async () => {
       mockPrisma.organization.findUnique.mockResolvedValue(mockOrg);
       mockPrisma.organization.update.mockResolvedValue(mockOrg);

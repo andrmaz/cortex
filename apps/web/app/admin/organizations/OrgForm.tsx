@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useRef, type CSSProperties } from "react";
 import type { Organization } from "./types";
 import {
   createOrganizationAction,
@@ -128,7 +128,7 @@ export function EditOrgForm({ org, onDone }: EditFormProps) {
   );
 }
 
-const formStyle: React.CSSProperties = {
+const formStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "12px",
@@ -138,19 +138,19 @@ const formStyle: React.CSSProperties = {
   background: "#f8fafc",
 };
 
-const fieldStyle: React.CSSProperties = {
+const fieldStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "4px",
 };
 
-const labelStyle: React.CSSProperties = {
+const labelStyle: CSSProperties = {
   fontSize: "14px",
   fontWeight: 600,
   color: "#374151",
 };
 
-const inputStyle: React.CSSProperties = {
+const inputStyle: CSSProperties = {
   padding: "8px 12px",
   border: "1px solid #d1d5db",
   borderRadius: "6px",
@@ -158,7 +158,7 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
 };
 
-const btnStyle: React.CSSProperties = {
+const btnStyle: CSSProperties = {
   padding: "8px 16px",
   background: "#2563eb",
   color: "#fff",
@@ -169,12 +169,12 @@ const btnStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-const secondaryBtnStyle: React.CSSProperties = {
+const secondaryBtnStyle: CSSProperties = {
   ...btnStyle,
   background: "#6b7280",
 };
 
-const errorStyle: React.CSSProperties = {
+const errorStyle: CSSProperties = {
   color: "#dc2626",
   fontSize: "13px",
   margin: 0,

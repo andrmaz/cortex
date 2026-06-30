@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type CSSProperties } from "react";
 import { fetchOrganizations } from "./api";
 import { OrgTable } from "./OrgTable";
 import { CreateOrgForm } from "./OrgForm";
@@ -66,24 +66,24 @@ export default function OrganizationsPage() {
   );
 }
 
-const pageStyle: React.CSSProperties = {
+const pageStyle: CSSProperties = {
   maxWidth: "900px",
   margin: "0 auto",
   padding: "32px 24px",
   fontFamily: "system-ui, -apple-system, sans-serif",
 };
 
-const headerStyle: React.CSSProperties = {
+const headerStyle: CSSProperties = {
   marginBottom: "32px",
   paddingBottom: "20px",
   borderBottom: "1px solid #e2e8f0",
 };
 
-const sectionStyle: React.CSSProperties = {
+const sectionStyle: CSSProperties = {
   marginBottom: "40px",
 };
 
-const sectionTitleStyle: React.CSSProperties = {
+const sectionTitleStyle: CSSProperties = {
   fontSize: "16px",
   fontWeight: 600,
   color: "#111827",

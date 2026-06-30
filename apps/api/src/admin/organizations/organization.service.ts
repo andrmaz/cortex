@@ -3,6 +3,15 @@ import {
   ConflictException,
   NotFoundException,
 } from "@nestjs/common";
+
+function isPrismaNotFoundError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
 import { PrismaService } from "../../prisma/prisma.service";
 import type { Organization } from "db/client";
 import type {
@@ -65,6 +74,9 @@ export class OrganizationService {
         throw new ConflictException(
           `Organization with name "${dto.name}" already exists`,
         );
+      }
+      if (isPrismaNotFoundError(err)) {
+        throw new NotFoundException(`Organization with id "${id}" not found`);
       }
       throw err;
     }

@@ -4,8 +4,8 @@ const API_URL = process.env["CORTEX_API_URL"] ?? "http://localhost:3001";
 
 /**
  * Reads the admin token from an environment variable (server-side only).
- * When the auth flow is wired into the web app, replace this with a call
- * to `cookies()` to read the session JWT instead.
+ * When user auth is wired into the web app, replace this with a call to
+ * `cookies()` to read the session JWT and verify the role before forwarding.
  */
 function getAdminToken(): string {
   return process.env["CORTEX_ADMIN_TOKEN"] ?? "";
@@ -16,10 +16,20 @@ function authHeaders(): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/** Safe JSON parse that returns null instead of throwing on non-JSON bodies. */
+async function parseJsonSafe<T>(res: Response): Promise<T | null> {
+  try {
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchOrganizations(): Promise<Organization[]> {
   const res = await fetch(`${API_URL}/api/admin/organizations`, {
     headers: authHeaders(),
     cache: "no-store",
+    signal: AbortSignal.timeout(5000),
   });
 
   if (!res.ok) {
@@ -30,10 +40,14 @@ export async function fetchOrganizations(): Promise<Organization[]> {
 }
 
 export async function fetchOrganization(id: string): Promise<Organization> {
-  const res = await fetch(`${API_URL}/api/admin/organizations/${id}`, {
-    headers: authHeaders(),
-    cache: "no-store",
-  });
+  const res = await fetch(
+    `${API_URL}/api/admin/organizations/${encodeURIComponent(id)}`,
+    {
+      headers: authHeaders(),
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    },
+  );
 
   if (!res.ok) {
     throw new Error(`Failed to fetch organization: ${res.status}`);
@@ -49,32 +63,35 @@ export async function createOrganization(
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
+    signal: AbortSignal.timeout(5000),
   });
 
-  const data = (await res.json()) as Organization & { message?: string };
-
   if (!res.ok) {
-    return { error: data.message ?? "Failed to create organization" };
+    const errBody = await parseJsonSafe<{ message?: string }>(res);
+    return { error: errBody?.message ?? "Failed to create organization" };
   }
 
-  return { org: data };
+  return { org: (await res.json()) as Organization };
 }
 
 export async function updateOrganization(
   id: string,
   name: string,
 ): Promise<{ org?: Organization; error?: string }> {
-  const res = await fetch(`${API_URL}/api/admin/organizations/${id}`, {
-    method: "PATCH",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
-  });
-
-  const data = (await res.json()) as Organization & { message?: string };
+  const res = await fetch(
+    `${API_URL}/api/admin/organizations/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+      signal: AbortSignal.timeout(5000),
+    },
+  );
 
   if (!res.ok) {
-    return { error: data.message ?? "Failed to update organization" };
+    const errBody = await parseJsonSafe<{ message?: string }>(res);
+    return { error: errBody?.message ?? "Failed to update organization" };
   }
 
-  return { org: data };
+  return { org: (await res.json()) as Organization };
 }

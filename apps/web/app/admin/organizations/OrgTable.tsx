@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import type { Organization } from "./types";
 import { EditOrgForm } from "./OrgForm";
 
@@ -69,13 +69,13 @@ export function OrgTable({ orgs }: OrgTableProps) {
   );
 }
 
-const tableStyle: React.CSSProperties = {
+const tableStyle: CSSProperties = {
   width: "100%",
   borderCollapse: "collapse",
   fontSize: "14px",
 };
 
-const thStyle: React.CSSProperties = {
+const thStyle: CSSProperties = {
   textAlign: "left",
   padding: "10px 12px",
   background: "#f1f5f9",
@@ -84,13 +84,13 @@ const thStyle: React.CSSProperties = {
   color: "#374151",
 };
 
-const tdStyle: React.CSSProperties = {
+const tdStyle: CSSProperties = {
   padding: "12px",
   borderBottom: "1px solid #e2e8f0",
   verticalAlign: "top",
 };
 
-const editBtnStyle: React.CSSProperties = {
+const editBtnStyle: CSSProperties = {
   padding: "4px 10px",
   background: "transparent",
   color: "#2563eb",
