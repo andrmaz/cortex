@@ -5,7 +5,9 @@
     "JWT_SECRET",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
-    "GOOGLE_CALLBACK_URL"
+    "GOOGLE_CALLBACK_URL",
+    "CORTEX_API_URL",
+    "CORTEX_ADMIN_TOKEN"
   ],
   "tasks": {
     "build": {
