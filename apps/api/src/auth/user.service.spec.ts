@@ -24,6 +24,9 @@ const mockPrisma = {
   organization: {
     findUnique: jest.fn(),
   },
+  userDepartment: {
+    findMany: jest.fn(),
+  },
 };
 
 describe("UserService", () => {
@@ -198,6 +201,45 @@ describe("UserService", () => {
       ).rejects.toThrow("Connection refused");
 
       expect(mockPrisma.user.upsert).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("getDepartmentAssignments", () => {
+    it("returns departmentIds and the primary department when one is set", async () => {
+      mockPrisma.userDepartment.findMany.mockResolvedValue([
+        { departmentId: "dept-1", isPrimary: false },
+        { departmentId: "dept-2", isPrimary: true },
+      ]);
+
+      const result = await service.getDepartmentAssignments("user-1");
+
+      expect(result).toEqual({
+        departmentIds: ["dept-1", "dept-2"],
+        primaryDepartmentId: "dept-2",
+      });
+      expect(mockPrisma.userDepartment.findMany).toHaveBeenCalledWith({
+        where: { userId: "user-1" },
+        select: { departmentId: true, isPrimary: true },
+      });
+    });
+
+    it("returns an empty departmentIds array and null primary when unassigned", async () => {
+      mockPrisma.userDepartment.findMany.mockResolvedValue([]);
+
+      const result = await service.getDepartmentAssignments("user-1");
+
+      expect(result).toEqual({ departmentIds: [], primaryDepartmentId: null });
+    });
+
+    it("returns null primary when no assignment is flagged primary", async () => {
+      mockPrisma.userDepartment.findMany.mockResolvedValue([
+        { departmentId: "dept-1", isPrimary: false },
+      ]);
+
+      const result = await service.getDepartmentAssignments("user-1");
+
+      expect(result.primaryDepartmentId).toBeNull();
+      expect(result.departmentIds).toEqual(["dept-1"]);
     });
   });
 });

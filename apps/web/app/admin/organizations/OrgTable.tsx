@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import Link from "next/link";
 import type { Organization } from "./types";
 import { EditOrgForm } from "./OrgForm";
 
@@ -35,29 +36,47 @@ export function OrgTable({ orgs }: OrgTableProps) {
             <tr key={org.id}>
               {editingId === org.id ? (
                 <td colSpan={4} style={tdStyle}>
-                  <EditOrgForm
-                    org={org}
-                    onDone={() => setEditingId(null)}
-                  />
+                  <EditOrgForm org={org} onDone={() => setEditingId(null)} />
                 </td>
               ) : (
                 <>
                   <td style={tdStyle}>
                     <span style={{ fontWeight: 600 }}>{org.name}</span>
                   </td>
-                  <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: "12px", color: "#6b7280" }}>
+                  <td
+                    style={{
+                      ...tdStyle,
+                      fontFamily: "monospace",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
                     {org.id}
                   </td>
-                  <td style={{ ...tdStyle, color: "#6b7280", fontSize: "13px" }}>
+                  <td
+                    style={{ ...tdStyle, color: "#6b7280", fontSize: "13px" }}
+                  >
                     {new Date(org.createdAt).toLocaleDateString()}
                   </td>
-                  <td style={tdStyle}>
+                  <td style={{ ...tdStyle, display: "flex", gap: "8px" }}>
                     <button
                       onClick={() => setEditingId(org.id)}
                       style={editBtnStyle}
                     >
                       Edit
                     </button>
+                    <Link
+                      href={`/admin/departments?orgId=${org.id}`}
+                      style={linkBtnStyle}
+                    >
+                      Departments
+                    </Link>
+                    <Link
+                      href={`/admin/users?orgId=${org.id}`}
+                      style={linkBtnStyle}
+                    >
+                      Users
+                    </Link>
                   </td>
                 </>
               )}
@@ -98,4 +117,15 @@ const editBtnStyle: CSSProperties = {
   borderRadius: "4px",
   fontSize: "13px",
   cursor: "pointer",
+};
+
+const linkBtnStyle: CSSProperties = {
+  padding: "4px 10px",
+  background: "transparent",
+  color: "#374151",
+  border: "1px solid #d1d5db",
+  borderRadius: "4px",
+  fontSize: "13px",
+  textDecoration: "none",
+  whiteSpace: "nowrap",
 };

@@ -12,7 +12,7 @@ import { AuthService } from "./auth.service";
 import { UserService } from "./user.service";
 import { GoogleAuthGuard } from "./guards/google-auth.guard";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
-import type { AuthenticatedUser } from "./auth.types";
+import type { AuthenticatedUser, SessionResponseDto } from "./auth.types";
 
 interface RequestWithUser extends Request {
   user: AuthenticatedUser & { googleSub: string };
@@ -67,11 +67,21 @@ export class AuthController {
 
 @Controller("api")
 export class MeController {
-  /** Returns the identity of the currently authenticated user. */
+  constructor(private readonly userService: UserService) {}
+
+  /**
+   * Returns the identity of the currently authenticated user, enriched with
+   * their current department assignments. This is the "authenticated
+   * user's session" view: JWT claims (id, email, organizationId, role) plus
+   * department scope resolved live from the UserDepartment table.
+   */
   @Get("me")
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  getMe(@Req() req: RequestWithJwtUser): AuthenticatedUser {
-    return req.user;
+  async getMe(@Req() req: RequestWithJwtUser): Promise<SessionResponseDto> {
+    const { departmentIds, primaryDepartmentId } =
+      await this.userService.getDepartmentAssignments(req.user.id);
+
+    return { ...req.user, departmentIds, primaryDepartmentId };
   }
 }
