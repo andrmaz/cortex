@@ -97,6 +97,13 @@ describe("Admin UserDepartments Integration", () => {
         .expect(401);
     });
 
+    it("returns 401 when the token is invalid", async () => {
+      await request(app.getHttpServer())
+        .get("/api/admin/users/user-1/departments")
+        .set("Authorization", "Bearer not.a.jwt")
+        .expect(401);
+    });
+
     it("returns 403 when authenticated user has member role", async () => {
       const token = issueToken("member");
 
@@ -201,6 +208,63 @@ describe("Admin UserDepartments Integration", () => {
         .set("Authorization", `Bearer ${token}`)
         .send({ departmentIds: ["dept-from-other-org"] })
         .expect(400);
+    });
+
+    it("returns 400 when departmentIds is not an array", async () => {
+      const token = issueToken("admin");
+
+      await request(app.getHttpServer())
+        .put("/api/admin/users/user-1/departments")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ departmentIds: "dept-1" })
+        .expect(400);
+
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when primaryDepartmentId is not a string", async () => {
+      const token = issueToken("admin");
+
+      await request(app.getHttpServer())
+        .put("/api/admin/users/user-1/departments")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ departmentIds: ["dept-1"], primaryDepartmentId: 42 })
+        .expect(400);
+
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when primaryDepartmentId is not included in departmentIds", async () => {
+      const token = issueToken("admin");
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.department.findMany.mockResolvedValue([{ id: "dept-1" }]);
+
+      await request(app.getHttpServer())
+        .put("/api/admin/users/user-1/departments")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ departmentIds: ["dept-1"], primaryDepartmentId: "dept-2" })
+        .expect(400);
+
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("deduplicates repeated departmentIds and returns 200", async () => {
+      const token = issueToken("admin");
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.department.findMany.mockResolvedValue([{ id: "dept-1" }]);
+      mockPrisma.userDepartment.findFirst.mockResolvedValue(null);
+      mockPrisma.userDepartment.findMany.mockResolvedValue(mockAssignmentRows);
+
+      await request(app.getHttpServer())
+        .put("/api/admin/users/user-1/departments")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ departmentIds: ["dept-1", "dept-1"] })
+        .expect(200);
+
+      expect(mockPrisma.department.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ["dept-1"] }, organizationId: "org-1" },
+        select: { id: true },
+      });
     });
   });
 });

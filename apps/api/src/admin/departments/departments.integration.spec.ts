@@ -90,12 +90,29 @@ describe("Admin Departments Integration", () => {
         .expect(401);
     });
 
+    it("returns 401 when the token is invalid", async () => {
+      await request(app.getHttpServer())
+        .get("/api/admin/organizations/org-1/departments")
+        .set("Authorization", "Bearer not.a.jwt")
+        .expect(401);
+    });
+
     it("returns 403 when authenticated user has member role", async () => {
       const token = issueToken("member");
 
       await request(app.getHttpServer())
         .get("/api/admin/organizations/org-1/departments")
         .set("Authorization", `Bearer ${token}`)
+        .expect(403);
+    });
+
+    it("returns 403 on POST for non-admin role", async () => {
+      const token = issueToken("member");
+
+      await request(app.getHttpServer())
+        .post("/api/admin/organizations/org-1/departments")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ name: "Engineering" })
         .expect(403);
     });
   });
@@ -162,6 +179,32 @@ describe("Admin Departments Integration", () => {
         .set("Authorization", `Bearer ${token}`)
         .send({})
         .expect(400);
+    });
+
+    it("returns 400 when name is an empty/whitespace-only string", async () => {
+      const token = issueToken("admin");
+      mockPrisma.organization.findUnique.mockResolvedValue(mockOrg);
+
+      await request(app.getHttpServer())
+        .post("/api/admin/organizations/org-1/departments")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ name: "   " })
+        .expect(400);
+
+      expect(mockPrisma.department.create).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when name is not a string", async () => {
+      const token = issueToken("admin");
+      mockPrisma.organization.findUnique.mockResolvedValue(mockOrg);
+
+      await request(app.getHttpServer())
+        .post("/api/admin/organizations/org-1/departments")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ name: 12345 })
+        .expect(400);
+
+      expect(mockPrisma.department.create).not.toHaveBeenCalled();
     });
 
     it("returns 404 when the organization does not exist", async () => {

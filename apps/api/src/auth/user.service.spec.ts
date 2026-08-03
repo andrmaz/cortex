@@ -241,5 +241,17 @@ describe("UserService", () => {
       expect(result.primaryDepartmentId).toBeNull();
       expect(result.departmentIds).toEqual(["dept-1"]);
     });
+
+    it("resolves to the first primary-flagged row if more than one is (unexpectedly) marked primary", async () => {
+      mockPrisma.userDepartment.findMany.mockResolvedValue([
+        { departmentId: "dept-1", isPrimary: true },
+        { departmentId: "dept-2", isPrimary: true },
+      ]);
+
+      const result = await service.getDepartmentAssignments("user-1");
+
+      expect(result.primaryDepartmentId).toBe("dept-1");
+      expect(result.departmentIds).toEqual(["dept-1", "dept-2"]);
+    });
   });
 });
