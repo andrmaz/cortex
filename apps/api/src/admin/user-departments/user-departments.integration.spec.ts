@@ -222,6 +222,31 @@ describe("Admin UserDepartments Integration", () => {
       expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
     });
 
+    it("returns 400 when departmentIds contains non-string elements", async () => {
+      const token = issueToken("admin");
+
+      await request(app.getHttpServer())
+        .put("/api/admin/users/user-1/departments")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ departmentIds: [123] })
+        .expect(400);
+
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("returns 403 when the target user belongs to another organization", async () => {
+      const token = issueToken("admin");
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...mockUser,
+        organizationId: "org-2",
+      });
+
+      await request(app.getHttpServer())
+        .get("/api/admin/users/user-1/departments")
+        .set("Authorization", `Bearer ${token}`)
+        .expect(403);
+    });
+
     it("returns 400 when primaryDepartmentId is not a string", async () => {
       const token = issueToken("admin");
 

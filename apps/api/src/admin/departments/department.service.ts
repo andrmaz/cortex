@@ -6,15 +6,7 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import type { Department } from "db/client";
 import type { CreateDepartmentDto } from "./department.dto";
-
-function isPrismaUniqueConstraintError(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code: string }).code === "P2002"
-  );
-}
+import { isPrismaUniqueConstraintError } from "../../common/prisma-errors";
 
 @Injectable()
 export class DepartmentService {

@@ -2,14 +2,21 @@ import {
   Controller,
   Get,
   Param,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
 import { AdminRoleGuard } from "../guards/admin-role.guard";
+import { assertAdminOrganizationAccess } from "../guards/assert-admin-organization";
 import { AdminUserService } from "./admin-user.service";
 import type { AdminUserResponseDto } from "./user.dto";
 import type { User } from "db/client";
+import type { AuthenticatedUser } from "../../auth/auth.types";
+
+interface RequestWithUser {
+  user: AuthenticatedUser;
+}
 
 function toResponseDto(user: User): AdminUserResponseDto {
   return {
@@ -29,8 +36,10 @@ export class AdminUsersController {
   @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(
+    @Req() req: RequestWithUser,
     @Param("organizationId") organizationId: string,
   ): Promise<AdminUserResponseDto[]> {
+    assertAdminOrganizationAccess(req.user.organizationId, organizationId);
     const users =
       await this.adminUserService.findAllByOrganization(organizationId);
     return users.map(toResponseDto);

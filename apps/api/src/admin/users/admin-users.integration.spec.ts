@@ -103,6 +103,17 @@ describe("Admin Users Integration", () => {
         .set("Authorization", `Bearer ${token}`)
         .expect(403);
     });
+
+    it("returns 403 when admin requests another organization's users", async () => {
+      const token = issueToken("admin");
+
+      await request(app.getHttpServer())
+        .get("/api/admin/organizations/org-2/users")
+        .set("Authorization", `Bearer ${token}`)
+        .expect(403);
+
+      expect(mockPrisma.organization.findUnique).not.toHaveBeenCalled();
+    });
   });
 
   describe("GET /api/admin/organizations/:organizationId/users", () => {
@@ -162,7 +173,7 @@ describe("Admin Users Integration", () => {
       mockPrisma.organization.findUnique.mockResolvedValue(null);
 
       await request(app.getHttpServer())
-        .get("/api/admin/organizations/missing-org/users")
+        .get("/api/admin/organizations/org-1/users")
         .set("Authorization", `Bearer ${token}`)
         .expect(404);
 

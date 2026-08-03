@@ -4,6 +4,7 @@ import {
   Put,
   Param,
   Body,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -16,6 +17,11 @@ import type {
   AssignUserDepartmentsDto,
   UserDepartmentsResponseDto,
 } from "./user-department.dto";
+import type { AuthenticatedUser } from "../../auth/auth.types";
+
+interface RequestWithUser {
+  user: AuthenticatedUser;
+}
 
 function toResponseDto(
   userId: string,
@@ -39,20 +45,32 @@ export class UserDepartmentsController {
   @Get()
   @HttpCode(HttpStatus.OK)
   async findForUser(
+    @Req() req: RequestWithUser,
     @Param("userId") userId: string,
   ): Promise<UserDepartmentsResponseDto> {
-    const rows = await this.userDepartmentService.findForUser(userId);
+    const rows = await this.userDepartmentService.findForUser(
+      userId,
+      req.user.organizationId,
+    );
     return toResponseDto(userId, rows);
   }
 
   @Put()
   @HttpCode(HttpStatus.OK)
   async assign(
+    @Req() req: RequestWithUser,
     @Param("userId") userId: string,
     @Body() body: AssignUserDepartmentsDto,
   ): Promise<UserDepartmentsResponseDto> {
     if (!Array.isArray(body.departmentIds) || body.departmentIds.length === 0) {
       throw new BadRequestException("departmentIds must be a non-empty array");
+    }
+    if (
+      body.departmentIds.some((id) => typeof id !== "string" || id.length === 0)
+    ) {
+      throw new BadRequestException(
+        "departmentIds must contain only non-empty strings",
+      );
     }
     if (
       body.primaryDepartmentId !== undefined &&
@@ -61,7 +79,11 @@ export class UserDepartmentsController {
       throw new BadRequestException("primaryDepartmentId must be a string");
     }
 
-    const rows = await this.userDepartmentService.assign(userId, body);
+    const rows = await this.userDepartmentService.assign(
+      userId,
+      req.user.organizationId,
+      body,
+    );
     return toResponseDto(userId, rows);
   }
 }

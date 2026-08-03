@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { User } from "db/client";
@@ -24,8 +25,11 @@ export interface UserDepartmentWithDepartment {
 export class UserDepartmentService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findForUser(userId: string): Promise<UserDepartmentWithDepartment[]> {
-    await this.ensureUserExists(userId);
+  async findForUser(
+    userId: string,
+    adminOrganizationId: string,
+  ): Promise<UserDepartmentWithDepartment[]> {
+    await this.ensureUserInOrganization(userId, adminOrganizationId);
 
     return this.prisma.userDepartment.findMany({
       where: { userId },
@@ -52,9 +56,10 @@ export class UserDepartmentService {
    */
   async assign(
     userId: string,
+    adminOrganizationId: string,
     dto: AssignUserDepartmentsDto,
   ): Promise<UserDepartmentWithDepartment[]> {
-    const user = await this.ensureUserExists(userId);
+    const user = await this.ensureUserInOrganization(userId, adminOrganizationId);
 
     const departmentIds = Array.from(new Set(dto.departmentIds));
     if (departmentIds.length === 0) {
@@ -107,7 +112,7 @@ export class UserDepartmentService {
       ),
     ]);
 
-    return this.findForUser(userId);
+    return this.findForUser(userId, adminOrganizationId);
   }
 
   private async resolveDefaultPrimary(
@@ -118,6 +123,19 @@ export class UserDepartmentService {
       where: { userId, isPrimary: true, departmentId: { in: departmentIds } },
     });
     return existingPrimary?.departmentId ?? departmentIds[0];
+  }
+
+  private async ensureUserInOrganization(
+    userId: string,
+    adminOrganizationId: string,
+  ): Promise<User> {
+    const user = await this.ensureUserExists(userId);
+    if (user.organizationId !== adminOrganizationId) {
+      throw new ForbiddenException(
+        "Admin cannot access users outside their organization",
+      );
+    }
+    return user;
   }
 
   private async ensureUserExists(userId: string): Promise<User> {

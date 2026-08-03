@@ -37,9 +37,7 @@ export function OrgPicker({
         }}
         style={selectStyle}
       >
-        <option value="" disabled>
-          Select an organization…
-        </option>
+        <option value="">Select an organization…</option>
         {organizations.map((org) => (
           <option key={org.id} value={org.id}>
             {org.name}

@@ -115,6 +115,17 @@ describe("Admin Departments Integration", () => {
         .send({ name: "Engineering" })
         .expect(403);
     });
+
+    it("returns 403 when admin requests another organization's departments", async () => {
+      const token = issueToken("admin");
+
+      await request(app.getHttpServer())
+        .get("/api/admin/organizations/org-2/departments")
+        .set("Authorization", `Bearer ${token}`)
+        .expect(403);
+
+      expect(mockPrisma.organization.findUnique).not.toHaveBeenCalled();
+    });
   });
 
   describe("GET /api/admin/organizations/:organizationId/departments", () => {
@@ -145,7 +156,7 @@ describe("Admin Departments Integration", () => {
       mockPrisma.organization.findUnique.mockResolvedValue(null);
 
       await request(app.getHttpServer())
-        .get("/api/admin/organizations/missing-org/departments")
+        .get("/api/admin/organizations/org-1/departments")
         .set("Authorization", `Bearer ${token}`)
         .expect(404);
     });
@@ -212,7 +223,7 @@ describe("Admin Departments Integration", () => {
       mockPrisma.organization.findUnique.mockResolvedValue(null);
 
       await request(app.getHttpServer())
-        .post("/api/admin/organizations/missing-org/departments")
+        .post("/api/admin/organizations/org-1/departments")
         .set("Authorization", `Bearer ${token}`)
         .send({ name: "Engineering" })
         .expect(404);

@@ -1,7 +1,9 @@
 import { Test, type TestingModule } from "@nestjs/testing";
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { UserDepartmentService } from "./user-department.service";
 import { PrismaService } from "../../prisma/prisma.service";
+
+const adminOrgId = "org-1";
 
 const mockUser = {
   id: "user-1",
@@ -58,7 +60,7 @@ describe("UserDepartmentService", () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       mockPrisma.userDepartment.findMany.mockResolvedValue(mockAssignmentRows);
 
-      const result = await service.findForUser("user-1");
+      const result = await service.findForUser("user-1", adminOrgId);
 
       expect(result).toEqual(mockAssignmentRows);
       expect(mockPrisma.userDepartment.findMany).toHaveBeenCalledWith({
@@ -71,8 +73,20 @@ describe("UserDepartmentService", () => {
     it("throws NotFoundException when the user does not exist", async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.findForUser("missing-user")).rejects.toThrow(
+      await expect(service.findForUser("missing-user", adminOrgId)).rejects.toThrow(
         NotFoundException,
+      );
+      expect(mockPrisma.userDepartment.findMany).not.toHaveBeenCalled();
+    });
+
+    it("throws ForbiddenException when the user belongs to another organization", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...mockUser,
+        organizationId: "org-2",
+      });
+
+      await expect(service.findForUser("user-1", adminOrgId)).rejects.toThrow(
+        ForbiddenException,
       );
       expect(mockPrisma.userDepartment.findMany).not.toHaveBeenCalled();
     });
@@ -93,21 +107,21 @@ describe("UserDepartmentService", () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.assign("missing-user", { departmentIds: ["dept-1"] }),
+        service.assign("missing-user", adminOrgId, { departmentIds: ["dept-1"] }),
       ).rejects.toThrow(NotFoundException);
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
     it("throws BadRequestException when departmentIds is empty", async () => {
       await expect(
-        service.assign("user-1", { departmentIds: [] }),
+        service.assign("user-1", adminOrgId, { departmentIds: [] }),
       ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
     it("throws BadRequestException when primaryDepartmentId is not in departmentIds", async () => {
       await expect(
-        service.assign("user-1", {
+        service.assign("user-1", adminOrgId, {
           departmentIds: ["dept-1"],
           primaryDepartmentId: "dept-2",
         }),
@@ -119,13 +133,13 @@ describe("UserDepartmentService", () => {
       mockPrisma.department.findMany.mockResolvedValue([{ id: "dept-1" }]);
 
       await expect(
-        service.assign("user-1", { departmentIds: ["dept-1", "dept-2"] }),
+        service.assign("user-1", adminOrgId, { departmentIds: ["dept-1", "dept-2"] }),
       ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
     it("scopes the department existence check to the user's organization", async () => {
-      await service.assign("user-1", { departmentIds: ["dept-1", "dept-2"] });
+      await service.assign("user-1", adminOrgId, { departmentIds: ["dept-1", "dept-2"] });
 
       expect(mockPrisma.department.findMany).toHaveBeenCalledWith({
         where: {
@@ -139,7 +153,7 @@ describe("UserDepartmentService", () => {
     it("dedupes repeated departmentIds before validating and writing", async () => {
       mockPrisma.department.findMany.mockResolvedValue([{ id: "dept-1" }]);
 
-      await service.assign("user-1", {
+      await service.assign("user-1", adminOrgId, {
         departmentIds: ["dept-1", "dept-1"],
       });
 
@@ -150,7 +164,7 @@ describe("UserDepartmentService", () => {
     });
 
     it("uses the explicit primaryDepartmentId when provided", async () => {
-      await service.assign("user-1", {
+      await service.assign("user-1", adminOrgId, {
         departmentIds: ["dept-1", "dept-2"],
         primaryDepartmentId: "dept-2",
       });
@@ -176,7 +190,7 @@ describe("UserDepartmentService", () => {
         departmentId: "dept-2",
       });
 
-      await service.assign("user-1", { departmentIds: ["dept-1", "dept-2"] });
+      await service.assign("user-1", adminOrgId, { departmentIds: ["dept-1", "dept-2"] });
 
       expect(mockPrisma.userDepartment.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -191,7 +205,7 @@ describe("UserDepartmentService", () => {
     it("defaults primary to the first departmentId when there is no existing primary", async () => {
       mockPrisma.userDepartment.findFirst.mockResolvedValue(null);
 
-      await service.assign("user-1", { departmentIds: ["dept-1", "dept-2"] });
+      await service.assign("user-1", adminOrgId, { departmentIds: ["dept-1", "dept-2"] });
 
       expect(mockPrisma.userDepartment.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -206,7 +220,7 @@ describe("UserDepartmentService", () => {
     it("clears existing primary flags before applying the new assignment set", async () => {
       mockPrisma.department.findMany.mockResolvedValue([{ id: "dept-1" }]);
 
-      await service.assign("user-1", { departmentIds: ["dept-1"] });
+      await service.assign("user-1", adminOrgId, { departmentIds: ["dept-1"] });
 
       expect(mockPrisma.userDepartment.updateMany).toHaveBeenCalledWith({
         where: { userId: "user-1" },
@@ -217,7 +231,7 @@ describe("UserDepartmentService", () => {
     it("deletes assignments for departments no longer in the set", async () => {
       mockPrisma.department.findMany.mockResolvedValue([{ id: "dept-1" }]);
 
-      await service.assign("user-1", { departmentIds: ["dept-1"] });
+      await service.assign("user-1", adminOrgId, { departmentIds: ["dept-1"] });
 
       expect(mockPrisma.userDepartment.deleteMany).toHaveBeenCalledWith({
         where: { userId: "user-1", departmentId: { notIn: ["dept-1"] } },
@@ -225,7 +239,7 @@ describe("UserDepartmentService", () => {
     });
 
     it("runs the update, delete, and upserts inside a single transaction", async () => {
-      await service.assign("user-1", { departmentIds: ["dept-1", "dept-2"] });
+      await service.assign("user-1", adminOrgId, { departmentIds: ["dept-1", "dept-2"] });
 
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
       const ops = mockPrisma.$transaction.mock.calls[0]?.[0] as unknown[];
@@ -235,7 +249,7 @@ describe("UserDepartmentService", () => {
     it("returns the refreshed assignment list after writing", async () => {
       mockPrisma.department.findMany.mockResolvedValue([{ id: "dept-1" }]);
 
-      const result = await service.assign("user-1", {
+      const result = await service.assign("user-1", adminOrgId, {
         departmentIds: ["dept-1"],
       });
 
