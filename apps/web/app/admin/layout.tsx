@@ -16,6 +16,11 @@ export default async function AdminLayout({
             Admin access required
           </h1>
           <p style={{ margin: 0, color: "#6b7280" }}>{err.message}</p>
+          <p style={{ margin: "16px 0 0" }}>
+            <a href="/auth/login" style={linkStyle}>
+              Sign in with Google
+            </a>
+          </p>
         </div>
       );
     }
@@ -33,4 +38,10 @@ const gateStyle: CSSProperties = {
   border: "1px solid #e2e8f0",
   borderRadius: "8px",
   background: "#f8fafc",
+};
+
+const linkStyle: CSSProperties = {
+  color: "#2563eb",
+  textDecoration: "none",
+  fontWeight: 500,
 };

@@ -7,7 +7,9 @@
     "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CALLBACK_URL",
     "CORTEX_API_URL",
-    "CORTEX_ADMIN_TOKEN"
+    "CORTEX_WEB_URL",
+    "CORTEX_ADMIN_TOKEN",
+    "NODE_ENV"
   ],
   "tasks": {
     "build": {

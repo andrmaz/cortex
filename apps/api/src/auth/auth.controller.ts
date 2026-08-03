@@ -48,20 +48,31 @@ export class AuthController {
     @Req() req: RequestWithUser,
     @Res() res: Response,
   ): Promise<void> {
-    const { googleSub, email } = req.user;
+    const webUrl = process.env["CORTEX_WEB_URL"] ?? "http://localhost:3000";
+    const callbackUrl = new URL("/auth/callback", webUrl);
 
-    const dbUser = await this.userService.findOrCreate({ googleSub, email });
+    try {
+      const { googleSub, email } = req.user;
 
-    const authenticatedUser: AuthenticatedUser = {
-      id: dbUser.id,
-      email: dbUser.email,
-      organizationId: dbUser.organizationId,
-      role: dbUser.role,
-    };
+      const dbUser = await this.userService.findOrCreate({ googleSub, email });
 
-    const token = this.authService.issueToken(authenticatedUser);
+      const authenticatedUser: AuthenticatedUser = {
+        id: dbUser.id,
+        email: dbUser.email,
+        organizationId: dbUser.organizationId,
+        role: dbUser.role,
+      };
 
-    res.json({ accessToken: token });
+      const token = this.authService.issueToken(authenticatedUser);
+
+      callbackUrl.searchParams.set("accessToken", token);
+      res.redirect(callbackUrl.toString());
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Authentication failed";
+      callbackUrl.searchParams.set("error", message);
+      res.redirect(callbackUrl.toString());
+    }
   }
 }
 
