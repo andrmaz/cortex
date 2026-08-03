@@ -62,10 +62,19 @@ async function AssignmentPanel({
   let fetchError: string | null = null;
 
   try {
-    const [depts, assignment] = await Promise.all([
+    const [depts, users, assignment] = await Promise.all([
       fetchDepartments(organizationId),
+      fetchUsers(organizationId),
       fetchUserDepartments(userId),
     ]);
+
+    const userInOrg = users.some((u) => u.id === userId);
+    if (!userInOrg) {
+      return (
+        <ErrorBanner message="Selected user does not belong to this organization." />
+      );
+    }
+
     departments = depts;
     currentAssignments = assignment.departments;
   } catch (err) {
@@ -81,6 +90,7 @@ async function AssignmentPanel({
 
   return (
     <AssignDepartmentsForm
+      key={userId}
       userId={userId}
       departments={departments}
       currentAssignments={currentAssignments}
