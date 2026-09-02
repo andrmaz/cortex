@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import type { User } from "db/client";
+import { runWithoutOrgScope } from "db";
 
 interface UpsertUserInput {
   googleSub: string;
@@ -22,8 +23,20 @@ import { isPrismaUniqueConstraintError } from "../common/prisma-errors";
 export class UserService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Looks up a user by their Google identity, independent of organization —
+   * this runs during login, before the caller's org is known, so it must
+   * bypass org scoping deliberately via `runWithoutOrgScope`.
+   *
+   * The callback passed to `runWithoutOrgScope` must be `async` (not a
+   * plain function that merely returns the Prisma call's result) — see the
+   * "Correct usage" note on `runWithoutOrgScope` for why a bare
+   * non-`async` callback silently loses the bound context.
+   */
   async findByGoogleSub(googleSub: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { googleSub } });
+    return runWithoutOrgScope(async () =>
+      this.prisma.user.findUnique({ where: { googleSub } }),
+    );
   }
 
   async findById(id: string): Promise<User | null> {
@@ -67,64 +80,69 @@ export class UserService {
    * no-ops on the existing row and returns it.
    */
   async findOrCreate(input: UpsertUserInput): Promise<User> {
-    // Fast path: returning users skip the org lookup entirely.
-    const existing = await this.prisma.user.findUnique({
-      where: { googleSub: input.googleSub },
-    });
-    if (existing) {
-      return existing;
-    }
-
-    // Validate email format – no PII in the error message.
-    const atIndex = input.email.indexOf("@");
-    if (atIndex <= 0) {
-      throw new BadRequestException("Invalid email format");
-    }
-    const domain = input.email.slice(atIndex + 1);
-    if (!domain) {
-      throw new BadRequestException("Invalid email format");
-    }
-
-    // Resolve organization by domain. Organization.name is @unique so
-    // findUnique is safe and semantically correct here.
-    const org = await this.prisma.organization.findUnique({
-      where: { name: domain },
-    });
-
-    if (!org) {
-      throw new UnauthorizedException(
-        `No organization provisioned for email domain "${domain}". ` +
-          "Contact your administrator to register your domain.",
-      );
-    }
-
-    // Atomic create with race-condition recovery.
-    // If a concurrent request already created this user, the unique
-    // constraint on googleSub raises P2002; we upsert to return the
-    // existing row without a second round-trip failure.
-    try {
-      return await this.prisma.user.create({
-        data: {
-          googleSub: input.googleSub,
-          email: input.email,
-          role: "member",
-          organizationId: org.id,
-        },
+    // The whole flow runs before the caller's organization is known (it's
+    // what determines it, via the email domain lookup below), so it
+    // deliberately bypasses org scoping via `runWithoutOrgScope`.
+    return runWithoutOrgScope(async () => {
+      // Fast path: returning users skip the org lookup entirely.
+      const existing = await this.prisma.user.findUnique({
+        where: { googleSub: input.googleSub },
       });
-    } catch (err) {
-      if (isPrismaUniqueConstraintError(err)) {
-        return await this.prisma.user.upsert({
-          where: { googleSub: input.googleSub },
-          update: {},
-          create: {
+      if (existing) {
+        return existing;
+      }
+
+      // Validate email format – no PII in the error message.
+      const atIndex = input.email.indexOf("@");
+      if (atIndex <= 0) {
+        throw new BadRequestException("Invalid email format");
+      }
+      const domain = input.email.slice(atIndex + 1);
+      if (!domain) {
+        throw new BadRequestException("Invalid email format");
+      }
+
+      // Resolve organization by domain. Organization.name is @unique so
+      // findUnique is safe and semantically correct here.
+      const org = await this.prisma.organization.findUnique({
+        where: { name: domain },
+      });
+
+      if (!org) {
+        throw new UnauthorizedException(
+          `No organization provisioned for email domain "${domain}". ` +
+            "Contact your administrator to register your domain.",
+        );
+      }
+
+      // Atomic create with race-condition recovery.
+      // If a concurrent request already created this user, the unique
+      // constraint on googleSub raises P2002; we upsert to return the
+      // existing row without a second round-trip failure.
+      try {
+        return await this.prisma.user.create({
+          data: {
             googleSub: input.googleSub,
             email: input.email,
             role: "member",
             organizationId: org.id,
           },
         });
+      } catch (err) {
+        if (isPrismaUniqueConstraintError(err)) {
+          return await this.prisma.user.upsert({
+            where: { googleSub: input.googleSub },
+            update: {},
+            create: {
+              googleSub: input.googleSub,
+              email: input.email,
+              role: "member",
+              organizationId: org.id,
+            },
+          });
+        }
+        throw err;
       }
-      throw err;
-    }
+    });
   }
 }
