@@ -5,12 +5,14 @@ import {
   Patch,
   Param,
   Body,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
   BadRequestException,
 } from "@nestjs/common";
 import { AdminRoleGuard } from "../guards/admin-role.guard";
+import { assertAdminOrganizationAccess } from "../guards/assert-admin-organization";
 import { OrganizationService } from "./organization.service";
 import type {
   CreateOrganizationDto,
@@ -18,6 +20,11 @@ import type {
   UpdateOrganizationDto,
 } from "./organization.dto";
 import type { Organization } from "db/client";
+import type { AuthenticatedUser } from "../../auth/auth.types";
+
+interface RequestWithUser {
+  user: AuthenticatedUser;
+}
 
 function toResponseDto(org: Organization): OrganizationResponseDto {
   return {
@@ -28,21 +35,41 @@ function toResponseDto(org: Organization): OrganizationResponseDto {
   };
 }
 
+/**
+ * Organization membership is the tenant boundary itself, so every route
+ * here is scoped to the authenticated admin's own organization —
+ * `assertAdminOrganizationAccess` blocks any attempt to read or modify a
+ * different organization with 403 Forbidden, mirroring the same convention
+ * used by `DepartmentsController` and `AdminUsersController`. Creating a new
+ * organization is the one exception: it doesn't read or modify existing
+ * tenant data, so it isn't scoped to an existing org.
+ */
 @Controller("api/admin/organizations")
 @UseGuards(AdminRoleGuard)
 export class OrganizationsController {
   constructor(private readonly organizationService: OrganizationService) {}
 
+  /**
+   * Returns the caller's own organization as a single-item list. There is
+   * no cross-tenant "list all organizations" view — an admin can only ever
+   * see the organization they belong to.
+   */
   @Get()
   @HttpCode(HttpStatus.OK)
-  async findAll(): Promise<OrganizationResponseDto[]> {
-    const orgs = await this.organizationService.findAll();
-    return orgs.map(toResponseDto);
+  async findAll(
+    @Req() req: RequestWithUser,
+  ): Promise<OrganizationResponseDto[]> {
+    const org = await this.organizationService.findOne(req.user.organizationId);
+    return [toResponseDto(org)];
   }
 
   @Get(":id")
   @HttpCode(HttpStatus.OK)
-  async findOne(@Param("id") id: string): Promise<OrganizationResponseDto> {
+  async findOne(
+    @Req() req: RequestWithUser,
+    @Param("id") id: string,
+  ): Promise<OrganizationResponseDto> {
+    assertAdminOrganizationAccess(req.user.organizationId, id);
     const org = await this.organizationService.findOne(id);
     return toResponseDto(org);
   }
@@ -64,9 +91,11 @@ export class OrganizationsController {
   @Patch(":id")
   @HttpCode(HttpStatus.OK)
   async update(
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Body() body: UpdateOrganizationDto,
   ): Promise<OrganizationResponseDto> {
+    assertAdminOrganizationAccess(req.user.organizationId, id);
     if (
       body.name !== undefined &&
       (typeof body.name !== "string" || !body.name.trim())

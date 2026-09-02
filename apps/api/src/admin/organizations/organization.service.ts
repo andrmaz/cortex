@@ -25,12 +25,6 @@ import { isPrismaUniqueConstraintError } from "../../common/prisma-errors";
 export class OrganizationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(): Promise<Organization[]> {
-    return this.prisma.organization.findMany({
-      orderBy: { createdAt: "desc" },
-    });
-  }
-
   async findOne(id: string): Promise<Organization> {
     const org = await this.prisma.organization.findUnique({ where: { id } });
     if (!org) {
