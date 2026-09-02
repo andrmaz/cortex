@@ -31,3 +31,8 @@ export interface SessionResponseDto extends AuthenticatedUser {
   departmentIds: string[];
   primaryDepartmentId: string | null;
 }
+
+/** One-time code exchanged by the web callback for a session JWT. */
+export interface ExchangeSessionResponse {
+  accessToken: string;
+}

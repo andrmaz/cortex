@@ -1,7 +1,7 @@
 import { adminAuthHeaders } from "../_lib/admin-auth";
 import type { Organization } from "./types";
 
-const API_URL = process.env["CORTEX_API_URL"] ?? "http://localhost:3001";
+const API_URL = process.env["CORTEX_API_URL"] ?? "http://localhost:4000";
 
 /** Safe JSON parse that returns null instead of throwing on non-JSON bodies. */
 async function parseJsonSafe<T>(res: Response): Promise<T | null> {

@@ -3,6 +3,7 @@ import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import * as jwt from "jsonwebtoken";
 import { AuthModule } from "./auth.module";
+import { AuthService } from "./auth.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { GoogleStrategy } from "./strategies/google.strategy";
 
@@ -140,5 +141,86 @@ describe("Session Enrichment Integration (GET /api/me)", () => {
 
     expect(res.body.departmentIds).toEqual([]);
     expect(res.body.primaryDepartmentId).toBeNull();
+  });
+});
+
+describe("OAuth session exchange (POST /auth/session)", () => {
+  let app: INestApplication;
+  let authService: AuthService;
+  let previousJwtSecret: string | undefined;
+
+  beforeAll(async () => {
+    previousJwtSecret = process.env["JWT_SECRET"];
+    process.env["JWT_SECRET"] = TEST_JWT_SECRET;
+
+    const moduleRef = await Test.createTestingModule({
+      imports: [AuthModule],
+    })
+      .overrideProvider(GoogleStrategy)
+      .useClass(MockGoogleStrategy)
+      .overrideProvider(PrismaService)
+      .useValue(mockPrisma)
+      .compile();
+
+    app = moduleRef.createNestApplication();
+    await app.init();
+    authService = moduleRef.get(AuthService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+    if (previousJwtSecret === undefined) {
+      delete process.env["JWT_SECRET"];
+    } else {
+      process.env["JWT_SECRET"] = previousJwtSecret;
+    }
+  });
+
+  it("exchanges a one-time code for the session JWT", async () => {
+    const token = issueToken({
+      sub: "user-1",
+      email: "alice@acme.com",
+      organizationId: "org-1",
+      role: "member",
+    });
+    const code = authService.issueOneTimeCode(token);
+
+    const res = await request(app.getHttpServer())
+      .post("/auth/session")
+      .send({ code })
+      .expect(200);
+
+    expect(res.body).toEqual({ accessToken: token });
+  });
+
+  it("rejects a reused one-time code", async () => {
+    const token = issueToken({
+      sub: "user-1",
+      email: "alice@acme.com",
+      organizationId: "org-1",
+      role: "member",
+    });
+    const code = authService.issueOneTimeCode(token);
+
+    await request(app.getHttpServer())
+      .post("/auth/session")
+      .send({ code })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post("/auth/session")
+      .send({ code })
+      .expect(401);
+  });
+
+  it("returns 400 when code is missing or not a string", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/session")
+      .send({})
+      .expect(400);
+    await request(app.getHttpServer())
+      .post("/auth/session")
+      .send({ code: 123 })
+      .expect(400);
   });
 });

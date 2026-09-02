@@ -6,7 +6,7 @@ export const ACCESS_TOKEN_COOKIE = "cortex_access_token";
 /** Matches JWT `expiresIn: "8h"` in the API auth module. */
 export const ACCESS_TOKEN_MAX_AGE_SECONDS = 8 * 60 * 60;
 
-const API_URL = process.env["CORTEX_API_URL"] ?? "http://localhost:3001";
+const API_URL = process.env["CORTEX_API_URL"] ?? "http://localhost:4000";
 
 export async function setAccessTokenCookie(token: string): Promise<void> {
   (await cookies()).set(ACCESS_TOKEN_COOKIE, token, {
