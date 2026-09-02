@@ -1,18 +1,25 @@
 import {
   Controller,
   Get,
+  Post,
+  Body,
   Req,
   Res,
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { UserService } from "./user.service";
 import { GoogleAuthGuard } from "./guards/google-auth.guard";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
-import type { AuthenticatedUser } from "./auth.types";
+import type {
+  AuthenticatedUser,
+  ExchangeSessionResponse,
+  SessionResponseDto,
+} from "./auth.types";
 
 interface RequestWithUser extends Request {
   user: AuthenticatedUser & { googleSub: string };
@@ -40,7 +47,8 @@ export class AuthController {
    * Google calls back here after the user grants consent.
    * findOrCreate throws UnauthorizedException when no organization is
    * provisioned for the user's email domain, so a JWT is only issued after
-   * a valid organizationId is confirmed.
+   * a valid organizationId is confirmed. The JWT is handed to the web app
+   * via a short-lived one-time code, not a query parameter.
    */
   @Get("google/callback")
   @UseGuards(GoogleAuthGuard)
@@ -48,30 +56,63 @@ export class AuthController {
     @Req() req: RequestWithUser,
     @Res() res: Response,
   ): Promise<void> {
-    const { googleSub, email } = req.user;
+    const webUrl = process.env["CORTEX_WEB_URL"] ?? "http://localhost:3000";
+    const callbackUrl = new URL("/auth/callback", webUrl);
 
-    const dbUser = await this.userService.findOrCreate({ googleSub, email });
+    try {
+      const { googleSub, email } = req.user;
 
-    const authenticatedUser: AuthenticatedUser = {
-      id: dbUser.id,
-      email: dbUser.email,
-      organizationId: dbUser.organizationId,
-      role: dbUser.role,
-    };
+      const dbUser = await this.userService.findOrCreate({ googleSub, email });
 
-    const token = this.authService.issueToken(authenticatedUser);
+      const authenticatedUser: AuthenticatedUser = {
+        id: dbUser.id,
+        email: dbUser.email,
+        organizationId: dbUser.organizationId,
+        role: dbUser.role,
+      };
 
-    res.json({ accessToken: token });
+      const token = this.authService.issueToken(authenticatedUser);
+      const code = this.authService.issueOneTimeCode(token);
+
+      callbackUrl.searchParams.set("code", code);
+      res.redirect(callbackUrl.toString());
+    } catch {
+      callbackUrl.searchParams.set("error", "authentication_failed");
+      res.redirect(callbackUrl.toString());
+    }
+  }
+
+  /**
+   * Exchanges a one-time OAuth code for the session JWT. The web callback
+   * calls this server-to-server so the token never appears in a browser URL.
+   */
+  @Post("session")
+  @HttpCode(HttpStatus.OK)
+  exchangeSession(@Body() body: { code?: unknown }): ExchangeSessionResponse {
+    if (typeof body?.code !== "string" || body.code.length === 0) {
+      throw new BadRequestException("code must be a non-empty string");
+    }
+    return { accessToken: this.authService.consumeOneTimeCode(body.code) };
   }
 }
 
 @Controller("api")
 export class MeController {
-  /** Returns the identity of the currently authenticated user. */
+  constructor(private readonly userService: UserService) {}
+
+  /**
+   * Returns the identity of the currently authenticated user, enriched with
+   * their current department assignments. This is the "authenticated
+   * user's session" view: JWT claims (id, email, organizationId, role) plus
+   * department scope resolved live from the UserDepartment table.
+   */
   @Get("me")
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  getMe(@Req() req: RequestWithJwtUser): AuthenticatedUser {
-    return req.user;
+  async getMe(@Req() req: RequestWithJwtUser): Promise<SessionResponseDto> {
+    const { departmentIds, primaryDepartmentId } =
+      await this.userService.getDepartmentAssignments(req.user.id);
+
+    return { ...req.user, departmentIds, primaryDepartmentId };
   }
 }

@@ -129,4 +129,38 @@ describe("AuthService", () => {
       expect(payload).toBeNull();
     });
   });
+
+  describe("one-time codes", () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("exchanges a code for the original token once", () => {
+      const token = service.issueToken(mockUser);
+      const code = service.issueOneTimeCode(token);
+
+      expect(service.consumeOneTimeCode(code)).toBe(token);
+      expect(() => service.consumeOneTimeCode(code)).toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it("rejects an unknown code", () => {
+      expect(() => service.consumeOneTimeCode("not-a-real-code")).toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it("rejects an expired code", () => {
+      jest.useFakeTimers();
+      const token = service.issueToken(mockUser);
+      const code = service.issueOneTimeCode(token);
+
+      jest.setSystemTime(Date.now() + 60_001);
+
+      expect(() => service.consumeOneTimeCode(code)).toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
 });

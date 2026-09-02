@@ -11,18 +11,12 @@ interface UpsertUserInput {
   email: string;
 }
 
-/**
- * Narrows an unknown thrown value to a Prisma unique-constraint error (P2002).
- * Avoids importing Prisma runtime types into the CommonJS API workspace.
- */
-function isPrismaUniqueConstraintError(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code: string }).code === "P2002"
-  );
+export interface DepartmentAssignments {
+  departmentIds: string[];
+  primaryDepartmentId: string | null;
 }
+
+import { isPrismaUniqueConstraintError } from "../common/prisma-errors";
 
 @Injectable()
 export class UserService {
@@ -34,6 +28,29 @@ export class UserService {
 
   async findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
+  }
+
+  /**
+   * Resolves the department scope used to enrich the authenticated user's
+   * session view (`GET /api/me`). Reads directly from the UserDepartment
+   * junction rather than a token claim so that admin-driven department
+   * assignment changes are visible immediately, without waiting for the
+   * user's JWT to expire and be reissued.
+   */
+  async getDepartmentAssignments(
+    userId: string,
+  ): Promise<DepartmentAssignments> {
+    const assignments = await this.prisma.userDepartment.findMany({
+      where: { userId },
+      select: { departmentId: true, isPrimary: true },
+    });
+
+    const primary = assignments.find((assignment) => assignment.isPrimary);
+
+    return {
+      departmentIds: assignments.map((assignment) => assignment.departmentId),
+      primaryDepartmentId: primary?.departmentId ?? null,
+    };
   }
 
   /**
