@@ -297,6 +297,30 @@ describe("createOrgScopedClient", () => {
     },
   );
 
+  it("allows an in-scope nested connect during create", async () => {
+    const findSource = jest.fn().mockResolvedValue({ id: "source-1" });
+    const createDocument = jest.fn().mockResolvedValue({ id: "document-1" });
+    const client = createOrgScopedClient(
+      createFakeBaseClient({
+        source: { findUnique: findSource },
+        document: { create: createDocument },
+      }) as unknown as FakeClient,
+    );
+
+    await runWithOrgContext("org-1", () =>
+      callModel(client, "document", "create", {
+        data: { source: { connect: { id: "source-1" } } },
+      }),
+    );
+
+    expect(findSource).toHaveBeenCalledWith({
+      where: { id: "source-1", organizationId: "org-1" },
+    });
+    expect(createDocument).toHaveBeenCalledWith({
+      data: { source: { connect: { id: "source-1" } } },
+    });
+  });
+
   it("keeps concurrent requests for different organizations isolated", async () => {
     const underlying = jest.fn(async (args: unknown) => args);
     const client = createOrgScopedClient(

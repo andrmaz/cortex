@@ -47,8 +47,12 @@ export async function runWithOrgContext<T>(
  *
  * Every call site is a deliberate, auditable exception to org isolation —
  * grep for `runWithoutOrgScope` in review and justify each usage in a
- * neighboring comment. See `runWithOrgContext`'s doc comment for why `fn`
- * must be `async`.
+ * neighboring comment.
+ *
+ * Unlike {@link runWithOrgContext}, this helper is synchronous and does not
+ * consume a returned lazy Prisma thenable. The callback must be `async` (or
+ * otherwise await any Prisma call) so the query runs while the unscoped
+ * context is still bound.
  */
 export function runWithoutOrgScope<T>(fn: () => T): T {
   return storage.run({ unscoped: true }, fn);

@@ -202,6 +202,22 @@ describe("verifyRelationOwnership", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("allows an in-scope nested connect during create", async () => {
+    const client = makeClient({ source: ["source-1"] });
+    await expect(
+      verifyRelationOwnership(
+        "Document",
+        "create",
+        { data: { source: { connect: { id: "source-1" } } } },
+        sourceVerifyVia,
+        client,
+      ),
+    ).resolves.toBeUndefined();
+    expect(client.source.findUnique).toHaveBeenCalledWith({
+      where: { id: "source-1" },
+    });
+  });
+
   it("rejects nested parent mutations other than connect", async () => {
     const client = makeClient({});
     await expect(
