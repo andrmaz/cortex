@@ -1,11 +1,14 @@
 import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
+import { APP_INTERCEPTOR } from "@nestjs/core";
 import request from "supertest";
 import * as jwt from "jsonwebtoken";
+import { getOrgContext } from "db";
 import { MCPModule } from "./mcp.module";
 import { AuthModule } from "../auth/auth.module";
 import { PrismaService } from "../prisma/prisma.service";
 import { GoogleStrategy } from "../auth/strategies/google.strategy";
+import { OrgContextInterceptor } from "../common/org-context.interceptor";
 
 const TEST_JWT_SECRET = "test-secret-for-mcp-integration";
 
@@ -47,6 +50,9 @@ describe("MCP Integration", () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [MCPModule, AuthModule],
+      providers: [
+        { provide: APP_INTERCEPTOR, useClass: OrgContextInterceptor },
+      ],
     })
       .overrideProvider(GoogleStrategy)
       .useClass(MockGoogleStrategy)
@@ -140,6 +146,154 @@ describe("MCP Integration", () => {
         .expect(201);
 
       expect(response.body.scope.departmentId).toBeNull();
+    });
+  });
+
+  describe("organization isolation", () => {
+    it("binds the JWT organizationId as the query-layer org context for the request", async () => {
+      const token = issueToken({
+        sub: "user_123",
+        email: "alice@example.com",
+        organizationId: "org_456",
+        role: "member",
+      });
+
+      let seen: ReturnType<typeof getOrgContext>;
+      mockPrisma.userDepartment.findFirst.mockImplementation(async () => {
+        seen = getOrgContext();
+        return null;
+      });
+
+      await request(app.getHttpServer())
+        .post("/mcp")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ query: "test" })
+        .expect(201);
+
+      expect(seen).toEqual({ organizationId: "org_456" });
+    });
+
+    it("scopes the userDepartment lookup by the caller's own organization", async () => {
+      const token = issueToken({
+        sub: "user_123",
+        email: "alice@example.com",
+        organizationId: "org_456",
+        role: "member",
+      });
+
+      mockPrisma.userDepartment.findFirst.mockResolvedValueOnce(null);
+
+      await request(app.getHttpServer())
+        .post("/mcp")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ query: "test" })
+        .expect(201);
+
+      expect(mockPrisma.userDepartment.findFirst).toHaveBeenCalledWith({
+        where: {
+          userId: "user_123",
+          isPrimary: true,
+          department: { organizationId: "org_456" },
+        },
+      });
+    });
+
+    it("keeps concurrent requests from different organizations fully isolated", async () => {
+      const tokenA = issueToken({
+        sub: "user_a",
+        email: "a@a-corp.example.com",
+        organizationId: "org_a",
+        role: "member",
+      });
+      const tokenB = issueToken({
+        sub: "user_b",
+        email: "b@b-corp.example.com",
+        organizationId: "org_b",
+        role: "member",
+      });
+
+      mockPrisma.userDepartment.findFirst.mockImplementation(
+        async ({ where }: { where: { userId: string } }) => {
+          if (where.userId === "user_a") {
+            return {
+              id: "ud_a",
+              userId: "user_a",
+              departmentId: "dept_a",
+              isPrimary: true,
+            };
+          }
+          if (where.userId === "user_b") {
+            return {
+              id: "ud_b",
+              userId: "user_b",
+              departmentId: "dept_b",
+              isPrimary: true,
+            };
+          }
+          return null;
+        },
+      );
+
+      const [resA, resB] = await Promise.all([
+        request(app.getHttpServer())
+          .post("/mcp")
+          .set("Authorization", `Bearer ${tokenA}`)
+          .send({ query: "query from org A" }),
+        request(app.getHttpServer())
+          .post("/mcp")
+          .set("Authorization", `Bearer ${tokenB}`)
+          .send({ query: "query from org B" }),
+      ]);
+
+      expect(resA.body.scope).toEqual({
+        organizationId: "org_a",
+        departmentId: "dept_a",
+      });
+      expect(resB.body.scope).toEqual({
+        organizationId: "org_b",
+        departmentId: "dept_b",
+      });
+      expect(resA.body.answer).toContain("query from org A");
+      expect(resB.body.answer).toContain("query from org B");
+    });
+
+    it("never returns another organization's departmentId even if that org's row is isPrimary in the same result set", async () => {
+      // Regression guard: the relation filter on `department.organizationId`
+      // is what prevents this, not incidental ordering of mock data.
+      const token = issueToken({
+        sub: "user_123",
+        email: "alice@example.com",
+        organizationId: "org_456",
+        role: "member",
+      });
+
+      mockPrisma.userDepartment.findFirst.mockImplementationOnce(
+        async ({
+          where,
+        }: {
+          where: { department: { organizationId: string } };
+        }) => {
+          // Simulate a correctly org-scoped query engine: a row belonging to
+          // a foreign org must never satisfy this filter.
+          if (where.department.organizationId !== "org_456") {
+            return null;
+          }
+          return {
+            id: "ud_1",
+            userId: "user_123",
+            departmentId: "dept_456",
+            isPrimary: true,
+          };
+        },
+      );
+
+      const response = await request(app.getHttpServer())
+        .post("/mcp")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ query: "test" })
+        .expect(201);
+
+      expect(response.body.scope.departmentId).toBe("dept_456");
     });
   });
 

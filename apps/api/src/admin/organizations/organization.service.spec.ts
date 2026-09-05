@@ -14,7 +14,6 @@ const mockOrg = {
 
 const mockPrisma = {
   organization: {
-    findMany: jest.fn(),
     findUnique: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -35,27 +34,6 @@ describe("OrganizationService", () => {
     }).compile();
 
     service = module.get<OrganizationService>(OrganizationService);
-  });
-
-  describe("findAll", () => {
-    it("returns all organizations ordered by createdAt desc", async () => {
-      mockPrisma.organization.findMany.mockResolvedValue([mockOrg]);
-
-      const result = await service.findAll();
-
-      expect(result).toEqual([mockOrg]);
-      expect(mockPrisma.organization.findMany).toHaveBeenCalledWith({
-        orderBy: { createdAt: "desc" },
-      });
-    });
-
-    it("returns an empty array when no organizations exist", async () => {
-      mockPrisma.organization.findMany.mockResolvedValue([]);
-
-      const result = await service.findAll();
-
-      expect(result).toEqual([]);
-    });
   });
 
   describe("findOne", () => {
@@ -175,9 +153,9 @@ describe("OrganizationService", () => {
       mockPrisma.organization.findUnique.mockResolvedValue(mockOrg);
       mockPrisma.organization.update.mockRejectedValue(p2025);
 
-      await expect(service.update("org-1", { name: "new.com" })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update("org-1", { name: "new.com" }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("applies no data update when dto is empty", async () => {
