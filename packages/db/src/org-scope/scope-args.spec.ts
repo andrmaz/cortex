@@ -106,6 +106,18 @@ describe("computeScopedArgs — direct scope (User, Department, ...)", () => {
     ]);
   });
 
+  it("normalizes scalar createMany data and forces organizationId", () => {
+    const result = computeScopedArgs(
+      {
+        model: "Department",
+        operation: "createMany",
+        args: { data: { name: "Eng", organizationId: "attacker-org" } },
+      },
+      ORG_ID,
+    );
+    expect(result["data"]).toEqual([{ name: "Eng", organizationId: ORG_ID }]);
+  });
+
   it("merges organizationId into where for findMany", () => {
     const result = computeScopedArgs(
       {
@@ -192,6 +204,43 @@ describe("computeScopedArgs — direct scope (User, Department, ...)", () => {
     expect(result["where"]).toEqual({ id: "dept-1", organizationId: ORG_ID });
     expect(result["create"]).toEqual({ name: "Eng", organizationId: ORG_ID });
     expect(result["update"]).toEqual({ name: "Eng2" });
+  });
+
+  it.each([
+    [
+      "create",
+      { data: { name: "Eng", organization: { connect: { id: ORG_ID } } } },
+    ],
+    [
+      "update",
+      {
+        where: { id: "dept-1" },
+        data: { organization: { connect: { id: "other-org" } } },
+      },
+    ],
+    [
+      "upsert",
+      {
+        where: { id: "dept-1" },
+        create: {
+          name: "Eng",
+          organization: { connect: { id: "other-org" } },
+        },
+        update: { name: "Engineering" },
+      },
+    ],
+    [
+      "upsert",
+      {
+        where: { id: "dept-1" },
+        create: { name: "Eng" },
+        update: { organization: { connect: { id: "other-org" } } },
+      },
+    ],
+  ])("rejects nested organization writes during %s", (operation, args) => {
+    expect(() =>
+      computeScopedArgs({ model: "Department", operation, args }, ORG_ID),
+    ).toThrow(/outside the caller's organization/);
   });
 
   it("throws on an unrecognized operation", () => {

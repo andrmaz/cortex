@@ -65,34 +65,35 @@ describe("org context", () => {
   /**
    * A "lazy thenable" that, like Prisma's client methods, does nothing
    * until something actually calls `.then()` on it — unlike a plain
-   * `Promise`, which begins settling as soon as it's constructed. This is
-   * what makes `runWithOrgContext`'s callback shape matter: a callback that
-   * just *returns* a lazy thenable (instead of `async`ly consuming it)
-   * hands back an inert value with no `.then()` reaction registered yet,
-   * so nothing ties the eventual reaction to the active context.
+   * `Promise`, which begins settling as soon as it's constructed. This
+   * mirrors the behavior `runWithOrgContext` must consume before restoring
+   * the previous context.
    */
-  function createLazyThenable<T>(resolve: () => T) {
+  function createLazyThenable<T>(resolve: () => T): PromiseLike<T> {
     return {
-      then(onFulfilled: (value: T) => void) {
-        queueMicrotask(() => onFulfilled(resolve()));
+      then<TResult1 = T, TResult2 = never>(
+        onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
+        onRejected?:
+          | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+          | null,
+      ): PromiseLike<TResult1 | TResult2> {
+        return Promise.resolve().then(resolve).then(onFulfilled, onRejected);
       },
     };
   }
 
-  it("loses the bound context when the callback merely returns a lazy thenable instead of awaiting it", async () => {
+  it("preserves the bound context while consuming a returned lazy thenable", async () => {
     const observed: unknown[] = [];
-    const rawThenable = runWithOrgContext("org-1", () =>
-      createLazyThenable(() => observed.push(getOrgContext())),
+    const result = await runWithOrgContext("org-1", () =>
+      createLazyThenable(() => {
+        observed.push(getOrgContext());
+        return "resolved";
+      }),
     );
 
-    await new Promise<void>((resolve) => {
-      // Mirrors an outer, uninstrumented caller awaiting the callback's
-      // return value — by now `runWithOrgContext` has already exited and
-      // restored the previous (absent) context.
-      (rawThenable as { then(cb: () => void): void }).then(resolve);
-    });
-
-    expect(observed).toEqual([undefined]);
+    expect(result).toBe("resolved");
+    expect(observed).toEqual([{ organizationId: "org-1" }]);
+    expect(getOrgContext()).toBeUndefined();
   });
 
   it("preserves the bound context when the callback is async and awaits the lazy thenable itself", async () => {

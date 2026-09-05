@@ -26,30 +26,18 @@ const storage = new AsyncLocalStorage<OrgContextStore>();
  * org-scoped queries succeed — there is no ambient "current organization"
  * outside of this call.
  *
- * **Correct usage — `fn` must be `async` (or otherwise consume any returned
- * Prisma call synchronously within its own body):**
+ * The callback may return a Promise or a lazy Prisma thenable directly;
+ * `runWithOrgContext` consumes it before leaving the active context:
  *
  * ```ts
- * // Correct: the callback is async, so `db.user.findMany(...)` is attached
- * // to (via the implicit return-value resolution) while still inside the
- * // active context.
- * const users = await runWithOrgContext(orgId, async () => db.user.findMany());
- * ```
- *
- * **Incorrect — do not do this:**
- *
- * ```ts
- * // Wrong: Prisma's client methods return a *lazy* promise that doesn't
- * // register a `.then()` reaction until something awaits it. A plain
- * // (non-async) callback just hands that lazy promise back to
- * // `runWithOrgContext`, which itself returns synchronously and restores
- * // the *previous* context before the caller ever gets a chance to await
- * // it — so the eventual query runs with no org context bound at all.
  * const users = await runWithOrgContext(orgId, () => db.user.findMany());
  * ```
  */
-export function runWithOrgContext<T>(organizationId: string, fn: () => T): T {
-  return storage.run({ organizationId }, fn);
+export async function runWithOrgContext<T>(
+  organizationId: string,
+  fn: () => T | PromiseLike<T>,
+): Promise<T> {
+  return storage.run({ organizationId }, async () => await fn());
 }
 
 /**

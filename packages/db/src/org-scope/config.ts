@@ -20,7 +20,10 @@ export type OrgScopeConfig =
   | {
       readonly kind: "relation";
       readonly chain: readonly [string, ...string[]];
-      readonly verifyVia: RelationVerification;
+      readonly verifyVia: readonly [
+        RelationVerification,
+        ...RelationVerification[],
+      ];
     };
 
 /**
@@ -46,21 +49,24 @@ export const ORG_SCOPE_CONFIG: Readonly<Record<string, OrgScopeConfig>> = {
   UserDepartment: {
     kind: "relation",
     chain: ["user", "organizationId"],
-    verifyVia: { foreignKeyField: "userId", parentModel: "User" },
+    verifyVia: [
+      { foreignKeyField: "userId", parentModel: "User" },
+      { foreignKeyField: "departmentId", parentModel: "Department" },
+    ],
   },
   Document: {
     kind: "relation",
     chain: ["source", "organizationId"],
-    verifyVia: { foreignKeyField: "sourceId", parentModel: "Source" },
+    verifyVia: [{ foreignKeyField: "sourceId", parentModel: "Source" }],
   },
   Chunk: {
     kind: "relation",
     chain: ["document", "source", "organizationId"],
-    verifyVia: { foreignKeyField: "documentId", parentModel: "Document" },
+    verifyVia: [{ foreignKeyField: "documentId", parentModel: "Document" }],
   },
   QueryLog: {
     kind: "relation",
     chain: ["user", "organizationId"],
-    verifyVia: { foreignKeyField: "userId", parentModel: "User" },
+    verifyVia: [{ foreignKeyField: "userId", parentModel: "User" }],
   },
 };

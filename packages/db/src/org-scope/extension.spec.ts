@@ -154,13 +154,17 @@ describe("createOrgScopedClient", () => {
   });
 
   it("allows a relation-scoped create when the referenced parent belongs to the caller's org", async () => {
-    const findUnique = jest
+    const findUser = jest
       .fn()
       .mockResolvedValue({ id: "user-1", organizationId: "org-1" });
+    const findDepartment = jest
+      .fn()
+      .mockResolvedValue({ id: "dept-1", organizationId: "org-1" });
     const createUserDepartment = jest.fn().mockResolvedValue({ id: "ud-1" });
     const client = createOrgScopedClient(
       createFakeBaseClient({
-        user: { findUnique },
+        user: { findUnique: findUser },
+        department: { findUnique: findDepartment },
         userDepartment: { create: createUserDepartment },
       }) as unknown as FakeClient,
     );
@@ -174,8 +178,11 @@ describe("createOrgScopedClient", () => {
     // The verification lookup runs through the same org-scoped client, so
     // it is itself scoped to the caller's organization (flat merge, since
     // findUnique requires the unique `id` field to stay top-level).
-    expect(findUnique).toHaveBeenCalledWith({
+    expect(findUser).toHaveBeenCalledWith({
       where: { id: "user-1", organizationId: "org-1" },
+    });
+    expect(findDepartment).toHaveBeenCalledWith({
+      where: { id: "dept-1", organizationId: "org-1" },
     });
     expect(createUserDepartment).toHaveBeenCalledWith({
       data: { userId: "user-1", departmentId: "dept-1" },
@@ -190,6 +197,9 @@ describe("createOrgScopedClient", () => {
     const client = createOrgScopedClient(
       createFakeBaseClient({
         user: { findUnique },
+        department: {
+          findUnique: jest.fn().mockResolvedValue({ id: "dept-1" }),
+        },
         userDepartment: { create: createUserDepartment },
       }) as unknown as FakeClient,
     );
@@ -204,6 +214,88 @@ describe("createOrgScopedClient", () => {
 
     expect(createUserDepartment).not.toHaveBeenCalled();
   });
+
+  it("rejects an in-scope user paired with another organization's department", async () => {
+    const findUser = jest.fn().mockResolvedValue({ id: "user-1" });
+    const findDepartment = jest.fn().mockResolvedValue(null);
+    const createUserDepartment = jest.fn();
+    const client = createOrgScopedClient(
+      createFakeBaseClient({
+        user: { findUnique: findUser },
+        department: { findUnique: findDepartment },
+        userDepartment: { create: createUserDepartment },
+      }) as unknown as FakeClient,
+    );
+
+    await expect(
+      runWithOrgContext("org-1", () =>
+        callModel(client, "userDepartment", "create", {
+          data: { userId: "user-1", departmentId: "cross-org-dept" },
+        }),
+      ),
+    ).rejects.toThrow(OrgScopeViolationError);
+
+    expect(findUser).toHaveBeenCalledWith({
+      where: { id: "user-1", organizationId: "org-1" },
+    });
+    expect(findDepartment).toHaveBeenCalledWith({
+      where: { id: "cross-org-dept", organizationId: "org-1" },
+    });
+    expect(createUserDepartment).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["create", { data: { source: { connect: { id: "cross-org-source" } } } }],
+    [
+      "update",
+      {
+        where: { id: "document-1" },
+        data: { source: { connect: { id: "cross-org-source" } } },
+      },
+    ],
+    [
+      "upsert create branch",
+      {
+        where: { id: "document-1" },
+        create: { source: { connect: { id: "cross-org-source" } } },
+        update: { sourceId: "source-1" },
+      },
+    ],
+    [
+      "upsert update branch",
+      {
+        where: { id: "document-1" },
+        create: { sourceId: "source-1" },
+        update: { source: { connect: { id: "cross-org-source" } } },
+      },
+    ],
+  ])(
+    "rejects cross-organization nested connect during %s",
+    async (label, args) => {
+      const operation = label.startsWith("upsert") ? "upsert" : label;
+      const findSource = jest.fn(async (input: unknown) => {
+        const { where } = input as { where: { id?: string } };
+        return where.id === "source-1" ? { id: "source-1" } : null;
+      });
+      const writeDocument = jest.fn();
+      const client = createOrgScopedClient(
+        createFakeBaseClient({
+          source: { findUnique: findSource },
+          document: { [operation]: writeDocument },
+        }) as unknown as FakeClient,
+      );
+
+      await expect(
+        runWithOrgContext("org-1", () =>
+          callModel(client, "document", operation, args),
+        ),
+      ).rejects.toThrow(OrgScopeViolationError);
+      expect(findSource).toHaveBeenCalledWith({
+        where: { id: "cross-org-source", organizationId: "org-1" },
+      });
+      expect(writeDocument).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps concurrent requests for different organizations isolated", async () => {
     const underlying = jest.fn(async (args: unknown) => args);

@@ -1,6 +1,6 @@
 import type { OrgScopeConfig } from "./config.js";
 import { ORG_SCOPE_CONFIG } from "./config.js";
-import { UnknownOrgScopeModelError } from "./errors.js";
+import { OrgScopeViolationError, UnknownOrgScopeModelError } from "./errors.js";
 import {
   buildRelationFilter,
   isPlainObject,
@@ -34,6 +34,13 @@ export const CREATE_OPERATIONS = new Set([
   "create",
   "createMany",
   "createManyAndReturn",
+]);
+
+export const RELATION_WRITE_OPERATIONS = new Set([
+  ...CREATE_OPERATIONS,
+  "update",
+  "updateMany",
+  "upsert",
 ]);
 
 const ALL_WHERE_FILTERED_OPERATIONS = new Set([
@@ -137,15 +144,17 @@ function applyDirectScope(
 ): Record<string, unknown> {
   if (operation === "create") {
     const data = isPlainObject(args["data"]) ? args["data"] : {};
+    rejectNestedForeignKeyWrite(data, field, model, operation);
     args["data"] = { ...data, [field]: organizationId };
     return args;
   }
   if (operation === "createMany" || operation === "createManyAndReturn") {
-    const items = Array.isArray(args["data"]) ? args["data"] : [];
-    args["data"] = items.map((item: unknown) => ({
-      ...(isPlainObject(item) ? item : {}),
-      [field]: organizationId,
-    }));
+    const items = Array.isArray(args["data"]) ? args["data"] : [args["data"]];
+    args["data"] = items.map((item: unknown) => {
+      const data = isPlainObject(item) ? item : {};
+      rejectNestedForeignKeyWrite(data, field, model, operation);
+      return { ...data, [field]: organizationId };
+    });
     return args;
   }
   if (operation === "upsert") {
@@ -153,8 +162,10 @@ function applyDirectScope(
       [field]: organizationId,
     });
     const create = isPlainObject(args["create"]) ? args["create"] : {};
+    rejectNestedForeignKeyWrite(create, field, model, operation);
     args["create"] = { ...create, [field]: organizationId };
     if (isPlainObject(args["update"])) {
+      rejectNestedForeignKeyWrite(args["update"], field, model, operation);
       args["update"] = stripField(args["update"], field);
     }
     return args;
@@ -165,11 +176,26 @@ function applyDirectScope(
     });
     // Never allow a scoped update to reassign a record to another org.
     if (isPlainObject(args["data"])) {
+      rejectNestedForeignKeyWrite(args["data"], field, model, operation);
       args["data"] = stripField(args["data"], field);
     }
     return args;
   }
   throw unsupportedOperation(model, operation);
+}
+
+function rejectNestedForeignKeyWrite(
+  data: Record<string, unknown>,
+  foreignKeyField: string,
+  model: string,
+  operation: string,
+): void {
+  const relationField = foreignKeyField.endsWith("Id")
+    ? foreignKeyField.slice(0, -2)
+    : undefined;
+  if (relationField && relationField in data) {
+    throw new OrgScopeViolationError(model, operation);
+  }
 }
 
 function applyRelationScope(

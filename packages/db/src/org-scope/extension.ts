@@ -1,9 +1,9 @@
 import { getOrgContext, isUnscopedContext } from "./context.js";
 import { MissingOrgContextError } from "./errors.js";
 import {
-  CREATE_OPERATIONS,
   computeScopedArgs,
   getScopeConfig,
+  RELATION_WRITE_OPERATIONS,
 } from "./scope-args.js";
 import type { OwnershipCheckClient } from "./verify-relation.js";
 import { verifyRelationOwnership } from "./verify-relation.js";
@@ -81,7 +81,10 @@ export function createOrgScopedClient<T extends ExtensibleClient>(
           );
 
           const config = getScopeConfig(model);
-          if (config.kind === "relation" && CREATE_OPERATIONS.has(operation)) {
+          if (
+            config.kind === "relation" &&
+            RELATION_WRITE_OPERATIONS.has(operation)
+          ) {
             await verifyRelationOwnership(
               model,
               operation,
