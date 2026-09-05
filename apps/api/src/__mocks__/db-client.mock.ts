@@ -27,8 +27,11 @@ type OrgContextStore = OrgContext | UnscopedContext;
 
 const orgContextStorage = new AsyncLocalStorage<OrgContextStore>();
 
-export function runWithOrgContext<T>(organizationId: string, fn: () => T): T {
-  return orgContextStorage.run({ organizationId }, fn);
+export async function runWithOrgContext<T>(
+  organizationId: string,
+  fn: () => T | PromiseLike<T>,
+): Promise<T> {
+  return orgContextStorage.run({ organizationId }, async () => await fn());
 }
 
 export function runWithoutOrgScope<T>(fn: () => T): T {

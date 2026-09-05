@@ -45,9 +45,14 @@ export class OrgContextInterceptor implements NestInterceptor {
     }
 
     return new Observable((subscriber: Subscriber<unknown>) => {
+      // `runWithOrgContext` is async: it awaits the callback's return value
+      // (including lazy thenables) internally, so it must itself be
+      // consumed here rather than left as a floating promise — any
+      // synchronous throw from `next.handle()`/`subscribe()` becomes a
+      // rejection that needs forwarding to the subscriber's error channel.
       runWithOrgContext(organizationId, () => {
         next.handle().subscribe(subscriber);
-      });
+      }).catch((err: unknown) => subscriber.error(err));
     });
   }
 }

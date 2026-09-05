@@ -1,7 +1,7 @@
+import type { CallHandler, ExecutionContext } from "@nestjs/common";
 import {
   CanActivate,
   Controller,
-  ExecutionContext,
   Get,
   INestApplication,
   Injectable,
@@ -11,6 +11,7 @@ import {
 import { APP_INTERCEPTOR } from "@nestjs/core";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
+import { of } from "rxjs";
 import { getOrgContext } from "db";
 import { OrgContextInterceptor } from "./org-context.interceptor";
 
@@ -89,6 +90,16 @@ class ProbeController {
   async authenticatedAsyncChain(): Promise<{ organizationId: string | null }> {
     const organizationId = await fakeServiceLayer();
     return { organizationId };
+  }
+
+  @Get("authenticated-throws")
+  @UseGuards(FakeAuthGuard)
+  authenticatedThrows(): never {
+    // Simulates a synchronous throw inside the org-context window, which
+    // `runWithOrgContext` (now async) turns into a rejected promise rather
+    // than a synchronous exception — the interceptor must forward that
+    // rejection to the response instead of leaving it unhandled.
+    throw new Error("synchronous failure inside org context");
   }
 }
 
@@ -175,6 +186,13 @@ describe("OrgContextInterceptor", () => {
     expect(resC.body).toEqual({ organizationId: "org-c" });
   });
 
+  it("forwards a synchronous throw inside the org context as a normal error response, not an unhandled rejection", async () => {
+    await request(app.getHttpServer())
+      .get("/authenticated-throws")
+      .set("x-test-org", "org-1")
+      .expect(500);
+  });
+
   it("keeps concurrent multi-hop async chains isolated across organizations", async () => {
     const [resX, resY] = await Promise.all([
       request(app.getHttpServer())
@@ -187,5 +205,66 @@ describe("OrgContextInterceptor", () => {
 
     expect(resX.body).toEqual({ organizationId: "org-x" });
     expect(resY.body).toEqual({ organizationId: "org-y" });
+  });
+});
+
+describe("OrgContextInterceptor — direct unit test", () => {
+  function fakeExecutionContext(user?: {
+    organizationId: string;
+  }): ExecutionContext {
+    return {
+      getType: () => "http",
+      switchToHttp: () => ({
+        getRequest: () => ({ user }),
+      }),
+    } as unknown as ExecutionContext;
+  }
+
+  /**
+   * `runWithOrgContext` is async — it awaits the callback internally, so a
+   * throw from `next.handle()` becomes a *rejected promise* rather than a
+   * synchronous exception. Without the `.catch()` forwarding it to the
+   * subscriber, this would be an unhandled rejection and the returned
+   * Observable would simply never emit (the HTTP response would hang).
+   * This can't be reproduced through the full HTTP pipeline above, because
+   * RxJS's own `defer`/`subscribe` machinery already catches a throw from a
+   * *real* Nest `CallHandler.handle()` before it ever reaches this
+   * interceptor's callback — so this test calls `intercept()` directly with
+   * a `CallHandler` stand-in that throws before returning an Observable.
+   */
+  it("forwards a synchronous throw from next.handle() to the subscriber instead of an unhandled rejection", async () => {
+    const interceptor = new OrgContextInterceptor();
+    const thrown = new Error("next.handle() failed synchronously");
+    const next: CallHandler = {
+      handle: () => {
+        throw thrown;
+      },
+    };
+
+    const result = interceptor.intercept(
+      fakeExecutionContext({ organizationId: "org-1" }),
+      next,
+    );
+
+    await expect(
+      new Promise((resolve, reject) => {
+        result.subscribe({ next: resolve, error: reject });
+      }),
+    ).rejects.toBe(thrown);
+  });
+
+  it("still emits normally when next.handle() succeeds", async () => {
+    const interceptor = new OrgContextInterceptor();
+    const next: CallHandler = { handle: () => of("ok") };
+
+    const result = interceptor.intercept(
+      fakeExecutionContext({ organizationId: "org-1" }),
+      next,
+    );
+
+    const value = await new Promise((resolve, reject) => {
+      result.subscribe({ next: resolve, error: reject });
+    });
+    expect(value).toBe("ok");
   });
 });
