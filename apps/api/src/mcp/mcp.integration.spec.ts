@@ -1,11 +1,14 @@
 import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
+import { APP_INTERCEPTOR } from "@nestjs/core";
 import request from "supertest";
 import * as jwt from "jsonwebtoken";
+import { getOrgContext } from "db";
 import { MCPModule } from "./mcp.module";
 import { AuthModule } from "../auth/auth.module";
 import { PrismaService } from "../prisma/prisma.service";
 import { GoogleStrategy } from "../auth/strategies/google.strategy";
+import { OrgContextInterceptor } from "../common/org-context.interceptor";
 
 const TEST_JWT_SECRET = "test-secret-for-mcp-integration";
 
@@ -47,6 +50,9 @@ describe("MCP Integration", () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [MCPModule, AuthModule],
+      providers: [
+        { provide: APP_INTERCEPTOR, useClass: OrgContextInterceptor },
+      ],
     })
       .overrideProvider(GoogleStrategy)
       .useClass(MockGoogleStrategy)
@@ -144,6 +150,29 @@ describe("MCP Integration", () => {
   });
 
   describe("organization isolation", () => {
+    it("binds the JWT organizationId as the query-layer org context for the request", async () => {
+      const token = issueToken({
+        sub: "user_123",
+        email: "alice@example.com",
+        organizationId: "org_456",
+        role: "member",
+      });
+
+      let seen: ReturnType<typeof getOrgContext>;
+      mockPrisma.userDepartment.findFirst.mockImplementation(async () => {
+        seen = getOrgContext();
+        return null;
+      });
+
+      await request(app.getHttpServer())
+        .post("/mcp")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ query: "test" })
+        .expect(201);
+
+      expect(seen).toEqual({ organizationId: "org_456" });
+    });
+
     it("scopes the userDepartment lookup by the caller's own organization", async () => {
       const token = issueToken({
         sub: "user_123",

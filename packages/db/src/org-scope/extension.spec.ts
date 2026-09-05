@@ -11,18 +11,27 @@ interface AllOperationsParams {
   args: unknown;
   query: Impl;
 }
+interface RawQueryParams {
+  args: unknown;
+  query: Impl;
+}
 interface FakeExtension {
   query: {
     $allModels: {
       $allOperations(params: AllOperationsParams): Promise<unknown>;
     };
+    $queryRaw?: (params: RawQueryParams) => Promise<unknown>;
+    $executeRaw?: (params: RawQueryParams) => Promise<unknown>;
+    $queryRawUnsafe?: (params: RawQueryParams) => Promise<unknown>;
+    $executeRawUnsafe?: (params: RawQueryParams) => Promise<unknown>;
   };
 }
 
-/** Structural shape of the fake client: `$extends` plus arbitrary model delegates. */
+/** Structural shape of the fake client: `$extends` plus arbitrary delegates. */
 type FakeClient = {
-  $extends(extension: FakeExtension): Record<string, Record<string, Impl>>;
-} & Record<string, Record<string, Impl>>;
+  $extends(extension: FakeExtension): FakeClient;
+  [key: string]: unknown;
+};
 
 /** Invokes a model operation on the fake client, asserting it was registered. */
 function callModel(
@@ -31,10 +40,22 @@ function callModel(
   operation: string,
   args: unknown,
 ): Promise<unknown> {
-  const delegate = client[model];
+  const delegate = client[model] as Record<string, Impl> | undefined;
   const impl = delegate?.[operation];
   if (!impl) {
     throw new Error(`Fake client has no ${model}.${operation}() registered`);
+  }
+  return impl(args);
+}
+
+function callClientOperation(
+  client: FakeClient,
+  operation: string,
+  args: unknown,
+): Promise<unknown> {
+  const impl = client[operation] as Impl | undefined;
+  if (!impl) {
+    throw new Error(`Fake client has no ${operation}() registered`);
   }
   return impl(args);
 }
@@ -44,18 +65,23 @@ function callModel(
  * `$extends` contract to exercise `createOrgScopedClient` without a live
  * database: calling a model delegate method routes through the registered
  * `$allOperations` middleware exactly as the real Prisma runtime does,
- * passing the underlying implementation through as `query`.
+ * passing the underlying implementation through as `query`. Client-level
+ * raw-SQL methods (`$queryRaw`, …) route through the matching named
+ * handler when present, otherwise through `$allOperations` with no model.
  */
-function createFakeBaseClient(modelImpls: ModelImpls) {
+function createFakeBaseClient(
+  modelImpls: ModelImpls,
+  clientImpls: Record<string, Impl> = {},
+) {
   return {
     $extends(extension: FakeExtension) {
-      const scoped: Record<string, Record<string, Impl>> = {};
+      const scoped: Record<string, unknown> = {};
       for (const [modelDelegate, ops] of Object.entries(modelImpls)) {
         const model =
           modelDelegate.charAt(0).toUpperCase() + modelDelegate.slice(1);
-        scoped[modelDelegate] = {};
+        const nextOps: Record<string, Impl> = {};
         for (const [operation, impl] of Object.entries(ops)) {
-          scoped[modelDelegate][operation] = (args: unknown) =>
+          nextOps[operation] = (args: unknown) =>
             extension.query.$allModels.$allOperations({
               model,
               operation,
@@ -63,6 +89,25 @@ function createFakeBaseClient(modelImpls: ModelImpls) {
               query: impl,
             });
         }
+        scoped[modelDelegate] = nextOps;
+      }
+      for (const [operation, impl] of Object.entries(clientImpls)) {
+        const namedHandler = (
+          extension.query as Record<
+            string,
+            ((params: RawQueryParams) => Promise<unknown>) | undefined
+          >
+        )[operation];
+        scoped[operation] = (args: unknown) => {
+          if (typeof namedHandler === "function") {
+            return namedHandler({ args, query: impl });
+          }
+          return extension.query.$allModels.$allOperations({
+            operation,
+            args,
+            query: impl,
+          });
+        };
       }
       return scoped;
     },
@@ -340,5 +385,54 @@ describe("createOrgScopedClient", () => {
 
     expect(resultA).toEqual({ where: { organizationId: "org-a" } });
     expect(resultB).toEqual({ where: { organizationId: "org-b" } });
+  });
+
+  it("rejects $queryRaw when a tenant context is active", async () => {
+    const underlying = jest.fn();
+    const client = createOrgScopedClient(
+      createFakeBaseClient(
+        {},
+        { $queryRaw: underlying },
+      ) as unknown as FakeClient,
+    );
+
+    await expect(
+      runWithOrgContext("org-1", () =>
+        callClientOperation(client, "$queryRaw", "SELECT 1"),
+      ),
+    ).rejects.toThrow(OrgScopeViolationError);
+    expect(underlying).not.toHaveBeenCalled();
+  });
+
+  it("rejects $queryRaw when no org context is active", async () => {
+    const underlying = jest.fn();
+    const client = createOrgScopedClient(
+      createFakeBaseClient(
+        {},
+        { $queryRaw: underlying },
+      ) as unknown as FakeClient,
+    );
+
+    await expect(
+      callClientOperation(client, "$queryRaw", "SELECT 1"),
+    ).rejects.toThrow(MissingOrgContextError);
+    expect(underlying).not.toHaveBeenCalled();
+  });
+
+  it("allows $queryRaw inside runWithoutOrgScope", async () => {
+    const underlying = jest.fn().mockResolvedValue([{ ok: 1 }]);
+    const client = createOrgScopedClient(
+      createFakeBaseClient(
+        {},
+        { $queryRaw: underlying },
+      ) as unknown as FakeClient,
+    );
+
+    const result = await runWithoutOrgScope(() =>
+      callClientOperation(client, "$queryRaw", "SELECT 1"),
+    );
+
+    expect(result).toEqual([{ ok: 1 }]);
+    expect(underlying).toHaveBeenCalledWith("SELECT 1");
   });
 });

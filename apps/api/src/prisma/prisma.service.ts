@@ -19,9 +19,11 @@ function createRawPrismaClient(): PrismaClient {
  * delegate exposed below is routed through `createOrgScopedClient`, which
  * enforces organization isolation at the query layer for every operation
  * (see `db`'s `org-scope` module). The raw, unscoped client is a private
- * field with no external accessor, so there is no way for a consumer to
- * bypass org scoping — it is enforced for every query, not opted into per
- * call site.
+ * field with no external accessor — `$queryRaw` / `$executeRaw` are
+ * intentionally not re-exported. The scoped client's raw-SQL methods still
+ * fail closed unless the caller is inside `runWithoutOrgScope`. There is
+ * no way for a consumer to bypass org scoping; it is enforced for every
+ * query, not opted into per call site.
  *
  * Code that legitimately needs to query across organizations (e.g.
  * resolving a user's Organization by email domain during login, before the

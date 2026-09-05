@@ -1,5 +1,5 @@
 import { getOrgContext, isUnscopedContext } from "./context.js";
-import { MissingOrgContextError } from "./errors.js";
+import { MissingOrgContextError, OrgScopeViolationError } from "./errors.js";
 import {
   computeScopedArgs,
   getScopeConfig,
@@ -11,6 +11,11 @@ import { verifyRelationOwnership } from "./verify-relation.js";
 interface AllOperationsParams {
   readonly model?: string;
   readonly operation: string;
+  readonly args: unknown;
+  readonly query: (args: unknown) => Promise<unknown>;
+}
+
+interface RawQueryParams {
   readonly args: unknown;
   readonly query: (args: unknown) => Promise<unknown>;
 }
@@ -31,8 +36,31 @@ interface ExtensibleClient {
       $allModels: {
         $allOperations(params: AllOperationsParams): Promise<unknown>;
       };
+      $queryRaw: (params: RawQueryParams) => Promise<unknown>;
+      $executeRaw: (params: RawQueryParams) => Promise<unknown>;
+      $queryRawUnsafe: (params: RawQueryParams) => Promise<unknown>;
+      $executeRawUnsafe: (params: RawQueryParams) => Promise<unknown>;
     };
   }): unknown;
+}
+
+/**
+ * Raw SQL cannot carry an org filter, so it is forbidden in a tenant
+ * context. The unscoped login/system hatch is the only allowed path.
+ */
+async function enforceClientOperation(
+  operation: string,
+  args: unknown,
+  query: (args: unknown) => Promise<unknown>,
+): Promise<unknown> {
+  const context = getOrgContext();
+  if (!context) {
+    throw new MissingOrgContextError("PrismaClient", operation);
+  }
+  if (isUnscopedContext(context)) {
+    return query(args);
+  }
+  throw new OrgScopeViolationError("PrismaClient", operation);
 }
 
 /**
@@ -45,7 +73,9 @@ interface ExtensibleClient {
  *
  * The generic `T` is preserved (via a cast) so the returned value keeps the
  * full delegate surface of the original client (`.user`, `.department`,
- * `$transaction`, ...).
+ * `$transaction`, ...). Raw SQL (`$queryRaw` / `$executeRaw` / unsafe
+ * variants) is rejected unless the caller is inside `runWithoutOrgScope`,
+ * because those operations cannot be rewritten with an org filter.
  */
 export function createOrgScopedClient<T extends ExtensibleClient>(
   baseClient: T,
@@ -55,11 +85,19 @@ export function createOrgScopedClient<T extends ExtensibleClient>(
   scopedClient = baseClient.$extends({
     name: "org-scope",
     query: {
+      $queryRaw: ({ args, query }: RawQueryParams) =>
+        enforceClientOperation("$queryRaw", args, query),
+      $executeRaw: ({ args, query }: RawQueryParams) =>
+        enforceClientOperation("$executeRaw", args, query),
+      $queryRawUnsafe: ({ args, query }: RawQueryParams) =>
+        enforceClientOperation("$queryRawUnsafe", args, query),
+      $executeRawUnsafe: ({ args, query }: RawQueryParams) =>
+        enforceClientOperation("$executeRawUnsafe", args, query),
       $allModels: {
         async $allOperations(params: AllOperationsParams): Promise<unknown> {
           const { model, operation, args, query } = params;
           if (!model) {
-            return query(args);
+            return enforceClientOperation(operation, args, query);
           }
 
           const context = getOrgContext();

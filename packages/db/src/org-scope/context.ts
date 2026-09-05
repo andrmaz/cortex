@@ -49,13 +49,18 @@ export async function runWithOrgContext<T>(
  * grep for `runWithoutOrgScope` in review and justify each usage in a
  * neighboring comment.
  *
- * Unlike {@link runWithOrgContext}, this helper is synchronous and does not
- * consume a returned lazy Prisma thenable. The callback must be `async` (or
- * otherwise await any Prisma call) so the query runs while the unscoped
- * context is still bound.
+ * Like {@link runWithOrgContext}, this helper is async and consumes a
+ * returned Promise or lazy Prisma thenable before restoring the previous
+ * context, so a bare `() => db.user.findUnique(...)` is safe:
+ *
+ * ```ts
+ * const user = await runWithoutOrgScope(() => db.user.findUnique({ where }));
+ * ```
  */
-export function runWithoutOrgScope<T>(fn: () => T): T {
-  return storage.run({ unscoped: true }, fn);
+export async function runWithoutOrgScope<T>(
+  fn: () => T | PromiseLike<T>,
+): Promise<T> {
+  return storage.run({ unscoped: true }, async () => await fn());
 }
 
 /** Returns the active org context, or `undefined` if none has been set. */

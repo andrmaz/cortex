@@ -49,14 +49,14 @@ describe("org context", () => {
     expect(seenInB).toEqual([{ organizationId: "org-b" }]);
   });
 
-  it("marks the unscoped escape hatch distinctly from a normal org context", () => {
-    runWithoutOrgScope(() => {
+  it("marks the unscoped escape hatch distinctly from a normal org context", async () => {
+    await runWithoutOrgScope(() => {
       const context = getOrgContext();
       expect(context).toBeDefined();
       expect(isUnscopedContext(context!)).toBe(true);
     });
 
-    runWithOrgContext("org-1", () => {
+    await runWithOrgContext("org-1", () => {
       const context = getOrgContext();
       expect(isUnscopedContext(context!)).toBe(false);
     });
@@ -106,13 +106,27 @@ describe("org context", () => {
     expect(observed).toEqual([{ organizationId: "org-1" }]);
   });
 
-  it("nesting runWithOrgContext inside runWithoutOrgScope re-applies scoping for the inner block", () => {
-    runWithoutOrgScope(() => {
+  it("nesting runWithOrgContext inside runWithoutOrgScope re-applies scoping for the inner block", async () => {
+    await runWithoutOrgScope(async () => {
       expect(isUnscopedContext(getOrgContext()!)).toBe(true);
-      runWithOrgContext("org-nested", () => {
+      await runWithOrgContext("org-nested", () => {
         expect(getOrgContext()).toEqual({ organizationId: "org-nested" });
       });
       expect(isUnscopedContext(getOrgContext()!)).toBe(true);
     });
+  });
+
+  it("preserves the unscoped context while consuming a returned lazy thenable", async () => {
+    const observed: unknown[] = [];
+    const result = await runWithoutOrgScope(() =>
+      createLazyThenable(() => {
+        observed.push(getOrgContext());
+        return "resolved";
+      }),
+    );
+
+    expect(result).toBe("resolved");
+    expect(observed).toEqual([{ unscoped: true }]);
+    expect(getOrgContext()).toBeUndefined();
   });
 });

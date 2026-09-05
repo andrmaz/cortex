@@ -27,14 +27,9 @@ export class UserService {
    * Looks up a user by their Google identity, independent of organization —
    * this runs during login, before the caller's org is known, so it must
    * bypass org scoping deliberately via `runWithoutOrgScope`.
-   *
-   * The callback passed to `runWithoutOrgScope` must be `async` (not a
-   * plain function that merely returns the Prisma call's result) — see the
-   * "Correct usage" note on `runWithoutOrgScope` for why a bare
-   * non-`async` callback silently loses the bound context.
    */
   async findByGoogleSub(googleSub: string): Promise<User | null> {
-    return runWithoutOrgScope(async () =>
+    return runWithoutOrgScope(() =>
       this.prisma.user.findUnique({ where: { googleSub } }),
     );
   }

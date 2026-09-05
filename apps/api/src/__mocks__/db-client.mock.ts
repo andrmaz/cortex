@@ -34,8 +34,10 @@ export async function runWithOrgContext<T>(
   return orgContextStorage.run({ organizationId }, async () => await fn());
 }
 
-export function runWithoutOrgScope<T>(fn: () => T): T {
-  return orgContextStorage.run({ unscoped: true }, fn);
+export async function runWithoutOrgScope<T>(
+  fn: () => T | PromiseLike<T>,
+): Promise<T> {
+  return orgContextStorage.run({ unscoped: true }, async () => await fn());
 }
 
 export function getOrgContext(): OrgContextStore | undefined {
