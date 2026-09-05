@@ -48,6 +48,21 @@ function callModel(
   return impl(args);
 }
 
+function getNamedRawHandler(
+  query: FakeExtension["query"],
+  operation: string,
+): ((params: RawQueryParams) => Promise<unknown>) | undefined {
+  if (
+    operation === "$queryRaw" ||
+    operation === "$executeRaw" ||
+    operation === "$queryRawUnsafe" ||
+    operation === "$executeRawUnsafe"
+  ) {
+    return query[operation];
+  }
+  return undefined;
+}
+
 function callClientOperation(
   client: FakeClient,
   operation: string,
@@ -92,14 +107,9 @@ function createFakeBaseClient(
         scoped[modelDelegate] = nextOps;
       }
       for (const [operation, impl] of Object.entries(clientImpls)) {
-        const namedHandler = (
-          extension.query as Record<
-            string,
-            ((params: RawQueryParams) => Promise<unknown>) | undefined
-          >
-        )[operation];
+        const namedHandler = getNamedRawHandler(extension.query, operation);
         scoped[operation] = (args: unknown) => {
-          if (typeof namedHandler === "function") {
+          if (namedHandler) {
             return namedHandler({ args, query: impl });
           }
           return extension.query.$allModels.$allOperations({
