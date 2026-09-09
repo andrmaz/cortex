@@ -16,7 +16,7 @@ class MockGoogleStrategy {
 const now = new Date("2024-06-01T12:00:00Z");
 
 const mockOrg = {
-  id: "org-uuid-1",
+  id: "org-1",
   name: "acme.com",
   createdAt: now,
   updatedAt: now,
@@ -28,15 +28,18 @@ const mockPrisma = {
   user: { findUnique: jest.fn() },
   organization: {
     findUnique: jest.fn(),
-    findMany: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
   },
 };
 
-function issueToken(role: string, sub = "user-1"): string {
+function issueToken(
+  role: string,
+  sub = "user-1",
+  organizationId = "org-1",
+): string {
   return jwt.sign(
-    { sub, email: `${sub}@example.com`, organizationId: "org-1", role },
+    { sub, email: `${sub}@example.com`, organizationId, role },
     TEST_JWT_SECRET,
     { expiresIn: "1h" },
   );
@@ -77,7 +80,7 @@ describe("Admin Organizations Integration", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Auth / role enforcement
+  // Auth / role / org-isolation enforcement
   // ---------------------------------------------------------------------------
 
   describe("authorization", () => {
@@ -112,16 +115,39 @@ describe("Admin Organizations Integration", () => {
         .send({ name: "test.com" })
         .expect(403);
     });
+
+    it("returns 403 when an admin requests another organization's details by id", async () => {
+      const token = issueToken("admin", "user-1", "org-1");
+
+      await request(app.getHttpServer())
+        .get("/api/admin/organizations/org-2")
+        .set("Authorization", `Bearer ${token}`)
+        .expect(403);
+
+      expect(mockPrisma.organization.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("returns 403 when an admin attempts to update another organization", async () => {
+      const token = issueToken("admin", "user-1", "org-1");
+
+      await request(app.getHttpServer())
+        .patch("/api/admin/organizations/org-2")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ name: "renamed.com" })
+        .expect(403);
+
+      expect(mockPrisma.organization.update).not.toHaveBeenCalled();
+    });
   });
 
   // ---------------------------------------------------------------------------
-  // List (read)
+  // List (read) — always scoped to the caller's own organization
   // ---------------------------------------------------------------------------
 
   describe("GET /api/admin/organizations", () => {
-    it("returns 200 with org list for admin", async () => {
+    it("returns 200 with only the caller's own organization", async () => {
       const token = issueToken("admin");
-      mockPrisma.organization.findMany.mockResolvedValue([mockOrg]);
+      mockPrisma.organization.findUnique.mockResolvedValue(mockOrg);
 
       const res = await request(app.getHttpServer())
         .get("/api/admin/organizations")
@@ -136,18 +162,28 @@ describe("Admin Organizations Integration", () => {
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
       });
+      expect(mockPrisma.organization.findUnique).toHaveBeenCalledWith({
+        where: { id: "org-1" },
+      });
     });
 
-    it("returns an empty array when no organizations exist", async () => {
-      const token = issueToken("admin");
-      mockPrisma.organization.findMany.mockResolvedValue([]);
+    it("never returns another organization's data regardless of what exists in the database", async () => {
+      // Even if the caller's own org lookup resolves to a *different*
+      // record than the one they belong to (e.g. a data bug), the response
+      // only ever reflects whatever `findOne(callerOrgId)` returns — there
+      // is no code path that can return more than one organization.
+      const token = issueToken("admin", "user-1", "org-1");
+      mockPrisma.organization.findUnique.mockResolvedValue(mockOrg);
 
-      const res = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .get("/api/admin/organizations")
         .set("Authorization", `Bearer ${token}`)
         .expect(200);
 
-      expect(res.body).toEqual([]);
+      expect(mockPrisma.organization.findUnique).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.organization.findUnique).toHaveBeenCalledWith({
+        where: { id: "org-1" },
+      });
     });
   });
 
@@ -156,7 +192,7 @@ describe("Admin Organizations Integration", () => {
   // ---------------------------------------------------------------------------
 
   describe("GET /api/admin/organizations/:id", () => {
-    it("returns 200 with org details for valid id", async () => {
+    it("returns 200 with org details when the id matches the caller's own organization", async () => {
       const token = issueToken("admin");
       mockPrisma.organization.findUnique.mockResolvedValue(mockOrg);
 
@@ -176,14 +212,14 @@ describe("Admin Organizations Integration", () => {
       mockPrisma.organization.findUnique.mockResolvedValue(null);
 
       await request(app.getHttpServer())
-        .get("/api/admin/organizations/missing-id")
+        .get(`/api/admin/organizations/${mockOrg.id}`)
         .set("Authorization", `Bearer ${token}`)
         .expect(404);
     });
   });
 
   // ---------------------------------------------------------------------------
-  // Create (write)
+  // Create (write) — not scoped to an existing org; new-tenant onboarding
   // ---------------------------------------------------------------------------
 
   describe("POST /api/admin/organizations", () => {
@@ -260,7 +296,7 @@ describe("Admin Organizations Integration", () => {
   // ---------------------------------------------------------------------------
 
   describe("PATCH /api/admin/organizations/:id", () => {
-    it("returns 200 with updated org on valid payload", async () => {
+    it("returns 200 with updated org when the id matches the caller's own organization", async () => {
       const token = issueToken("admin");
       const updated = { ...mockOrg, name: "updated.com" };
       mockPrisma.organization.findUnique.mockResolvedValue(mockOrg);
@@ -280,7 +316,7 @@ describe("Admin Organizations Integration", () => {
       mockPrisma.organization.findUnique.mockResolvedValue(null);
 
       await request(app.getHttpServer())
-        .patch("/api/admin/organizations/missing-id")
+        .patch(`/api/admin/organizations/${mockOrg.id}`)
         .set("Authorization", `Bearer ${token}`)
         .send({ name: "new.com" })
         .expect(404);
