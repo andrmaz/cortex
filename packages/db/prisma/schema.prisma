@@ -25,6 +25,7 @@ model Organization {
   users       User[]
   departments Department[]
   sources     Source[]
+  documents   Document[]
   policies    Policy[]
 
   @@map("organizations")
@@ -117,18 +118,21 @@ model Source {
 
 /// A normalized unit of source content stored for retrieval.
 model Document {
-  id        String   @id @default(uuid())
-  sourceId  String   @map("source_id")
-  content   String
-  metadata  Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(uuid())
+  sourceId       String   @map("source_id")
+  organizationId String   @map("organization_id")
+  content        String
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
-  source Source  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  chunks Chunk[]
+  source       Source       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  chunks       Chunk[]
 
   @@index([sourceId])
+  @@index([organizationId])
   @@map("documents")
 }
 
