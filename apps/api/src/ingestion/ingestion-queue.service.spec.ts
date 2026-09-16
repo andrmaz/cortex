@@ -1,5 +1,7 @@
 import { Queue } from "bullmq";
 import {
+  FAILED_JOB_RETENTION_AGE_SECONDS,
+  FAILED_JOB_RETENTION_COUNT,
   INGEST_DOCUMENT_JOB_NAME,
   INGESTION_QUEUE_NAME,
   IngestionQueueService,
@@ -8,9 +10,10 @@ import {
 
 const add = jest.fn();
 const close = jest.fn();
+const getJob = jest.fn();
 
 jest.mock("bullmq", () => ({
-  Queue: jest.fn().mockImplementation(() => ({ add, close })),
+  Queue: jest.fn().mockImplementation(() => ({ add, close, getJob })),
 }));
 
 const data: IngestDocumentJobData = {
@@ -38,25 +41,49 @@ describe("IngestionQueueService", () => {
   });
 
   it("adds document ingestion jobs to the configured BullMQ queue", async () => {
-    add.mockResolvedValue({ id: "job-1" });
+    add.mockResolvedValue({ id: data.documentId });
     const service = new IngestionQueueService();
 
-    await expect(service.enqueueDocument(data)).resolves.toBe("job-1");
+    await expect(service.enqueueDocument(data)).resolves.toBe(data.documentId);
     expect(Queue).toHaveBeenCalledWith(
       INGESTION_QUEUE_NAME,
       expect.objectContaining({
         connection: { url: "redis://queue.example:6379" },
         defaultJobOptions: expect.objectContaining({
           attempts: 3,
-          removeOnFail: false,
+          removeOnFail: {
+            age: FAILED_JOB_RETENTION_AGE_SECONDS,
+            count: FAILED_JOB_RETENTION_COUNT,
+          },
         }),
       }),
     );
-    expect(add).toHaveBeenCalledWith(INGEST_DOCUMENT_JOB_NAME, data);
+    expect(add).toHaveBeenCalledWith(INGEST_DOCUMENT_JOB_NAME, data, {
+      jobId: data.documentId,
+    });
+    expect(getJob).not.toHaveBeenCalled();
+  });
+
+  it("returns an existing job when add fails after Redis accepted it", async () => {
+    add.mockRejectedValue(new Error("lost acknowledgement"));
+    getJob.mockResolvedValue({ id: data.documentId });
+    const service = new IngestionQueueService();
+
+    await expect(service.enqueueDocument(data)).resolves.toBe(data.documentId);
+    expect(getJob).toHaveBeenCalledWith(data.documentId);
+  });
+
+  it("rethrows when add fails and the job is not in the queue", async () => {
+    const failure = new Error("Redis unavailable");
+    add.mockRejectedValue(failure);
+    getJob.mockResolvedValue(undefined);
+    const service = new IngestionQueueService();
+
+    await expect(service.enqueueDocument(data)).rejects.toBe(failure);
   });
 
   it("closes the BullMQ queue during module shutdown", async () => {
-    add.mockResolvedValue({ id: "job-1" });
+    add.mockResolvedValue({ id: data.documentId });
     close.mockResolvedValue(undefined);
     const service = new IngestionQueueService();
     await service.enqueueDocument(data);

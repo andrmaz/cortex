@@ -1,7 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSource, uploadSourceDocument } from "./api";
+import {
+  createSource,
+  documentUploadIdempotencyKey,
+  uploadSourceDocument,
+} from "./api";
 
 export interface SourceActionState {
   error?: string;
@@ -47,8 +51,11 @@ export async function uploadDocumentAction(
     return { error: "Choose a non-empty file" };
   }
 
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const idempotencyKey = documentUploadIdempotencyKey(sourceId, file, bytes);
+
   try {
-    const result = await uploadSourceDocument(sourceId, file);
+    const result = await uploadSourceDocument(sourceId, file, idempotencyKey);
     if (result.error) {
       return { error: result.error };
     }

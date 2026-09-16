@@ -52,6 +52,7 @@ const prisma = {
     create: jest.fn(),
   },
   document: {
+    findFirst: jest.fn(),
     create: jest.fn(),
     delete: jest.fn(),
   },
@@ -174,6 +175,63 @@ describe("Admin Sources Integration", () => {
       size: 12,
       jobId: "job-123",
     });
+    expect(prisma.source.findUnique).toHaveBeenCalledWith({
+      where: { id: source.id, organizationId: "org-1" },
+    });
+  });
+
+  it("rejects malformed UTF-8 uploads", async () => {
+    await request(app.getHttpServer())
+      .post(`/api/admin/sources/${source.id}/documents`)
+      .set("Authorization", `Bearer ${token()}`)
+      .attach("file", Buffer.from([0xff, 0xfe, 0xfd]), {
+        filename: "broken.txt",
+        contentType: "text/plain",
+      })
+      .expect(400);
+
+    expect(prisma.document.create).not.toHaveBeenCalled();
+    expect(queue.enqueueDocument).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid JSON when the client MIME type is application/json", async () => {
+    await request(app.getHttpServer())
+      .post(`/api/admin/sources/${source.id}/documents`)
+      .set("Authorization", `Bearer ${token()}`)
+      .attach("file", Buffer.from("{not-json"), {
+        filename: "broken.json",
+        contentType: "application/json",
+      })
+      .expect(400);
+
+    expect(prisma.document.create).not.toHaveBeenCalled();
+    expect(queue.enqueueDocument).not.toHaveBeenCalled();
+  });
+
+  it("reuses an existing document when the idempotency key matches", async () => {
+    const existing = {
+      ...document,
+      metadata: { idempotencyKey: "upload-1" },
+    };
+    prisma.source.findUnique.mockResolvedValue(source);
+    prisma.document.findFirst.mockResolvedValue(existing);
+    queue.enqueueDocument.mockResolvedValue(existing.id);
+
+    const response = await request(app.getHttpServer())
+      .post(`/api/admin/sources/${source.id}/documents`)
+      .set("Authorization", `Bearer ${token()}`)
+      .set("Idempotency-Key", "upload-1")
+      .attach("file", Buffer.from("Hello Cortex"), {
+        filename: "handbook.txt",
+        contentType: "text/plain",
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      id: existing.id,
+      jobId: existing.id,
+    });
+    expect(prisma.document.create).not.toHaveBeenCalled();
   });
 
   it("rejects uploads without a file", async () => {

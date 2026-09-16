@@ -1,6 +1,5 @@
 import {
   Injectable,
-  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
@@ -23,8 +22,6 @@ export interface UploadFile {
 
 @Injectable()
 export class SourceService {
-  private readonly logger = new Logger(SourceService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly ingestionQueue: IngestionQueueService,
@@ -51,26 +48,34 @@ export class SourceService {
     organizationId: string,
     sourceId: string,
     file: UploadFile,
+    idempotencyKey?: string,
   ): Promise<UploadedDocument> {
     const source = await this.prisma.source.findUnique({
-      where: { id: sourceId },
+      where: { id: sourceId, organizationId },
     });
     if (!source) {
       throw new NotFoundException(`Source with id "${sourceId}" not found`);
     }
 
-    const document = await this.prisma.document.create({
-      data: {
-        sourceId,
+    const document =
+      (await this.findDocumentByIdempotencyKey(
         organizationId,
-        content: file.buffer.toString("utf8"),
-        metadata: {
-          fileName: file.originalname,
-          mimeType: file.mimetype,
-          size: file.size,
+        sourceId,
+        idempotencyKey,
+      )) ??
+      (await this.prisma.document.create({
+        data: {
+          sourceId,
+          organizationId,
+          content: file.buffer.toString("utf8"),
+          metadata: {
+            fileName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+            ...(idempotencyKey ? { idempotencyKey } : {}),
+          },
         },
-      },
-    });
+      }));
 
     try {
       const jobId = await this.ingestionQueue.enqueueDocument({
@@ -82,20 +87,33 @@ export class SourceService {
       });
       return { document, jobId };
     } catch (error) {
-      try {
-        await this.prisma.document.delete({ where: { id: document.id } });
-      } catch (cleanupError) {
-        this.logger.error(
-          `Failed to remove document "${document.id}" after enqueue failure`,
-          cleanupError instanceof Error
-            ? cleanupError.stack
-            : String(cleanupError),
-        );
-      }
+      // Keep the document: Queue.add can reject after Redis accepted the job.
+      // Deleting would leave a queued job pointing at a missing row.
       throw new ServiceUnavailableException(
         "Document ingestion queue is unavailable",
         { cause: error },
       );
     }
+  }
+
+  private async findDocumentByIdempotencyKey(
+    organizationId: string,
+    sourceId: string,
+    idempotencyKey: string | undefined,
+  ): Promise<Document | null> {
+    if (!idempotencyKey) {
+      return null;
+    }
+
+    return this.prisma.document.findFirst({
+      where: {
+        sourceId,
+        organizationId,
+        metadata: {
+          path: ["idempotencyKey"],
+          equals: idempotencyKey,
+        },
+      },
+    });
   }
 }

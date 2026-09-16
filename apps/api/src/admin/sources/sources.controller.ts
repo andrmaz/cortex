@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -26,6 +27,8 @@ import {
 import { SourceService, type UploadFile } from "./source.service";
 
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
+const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]+$/;
 const SUPPORTED_MIME_TYPES = new Set([
   "application/json",
   "text/csv",
@@ -73,6 +76,35 @@ function isSourceType(value: unknown): value is SourceType {
   );
 }
 
+function decodeUtf8Buffer(buffer: Buffer): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+  } catch {
+    throw new BadRequestException("file must be valid UTF-8");
+  }
+}
+
+function assertJsonDocument(content: string): void {
+  try {
+    JSON.parse(content);
+  } catch {
+    throw new BadRequestException("file must contain valid JSON");
+  }
+}
+
+function parseIdempotencyKey(value: string | undefined): string | undefined {
+  if (value === undefined || value === "") {
+    return undefined;
+  }
+  if (
+    value.length > MAX_IDEMPOTENCY_KEY_LENGTH ||
+    !IDEMPOTENCY_KEY_PATTERN.test(value)
+  ) {
+    throw new BadRequestException("idempotency-key is invalid");
+  }
+  return value;
+}
+
 @Controller("api/admin/sources")
 @UseGuards(AdminRoleGuard)
 export class SourcesController {
@@ -117,6 +149,7 @@ export class SourcesController {
   async uploadDocument(
     @Req() req: RequestWithUser,
     @Param("sourceId") sourceId: string,
+    @Headers("idempotency-key") idempotencyKeyHeader?: string,
     @UploadedFile() file?: UploadFile,
   ): Promise<DocumentResponseDto> {
     if (!file) {
@@ -131,10 +164,16 @@ export class SourcesController {
       );
     }
 
+    const content = decodeUtf8Buffer(file.buffer);
+    if (file.mimetype === "application/json") {
+      assertJsonDocument(content);
+    }
+
     const result = await this.sourceService.uploadDocument(
       req.user.organizationId,
       sourceId,
       file,
+      parseIdempotencyKey(idempotencyKeyHeader),
     );
     return toDocumentResponse(result.document, file, result.jobId);
   }

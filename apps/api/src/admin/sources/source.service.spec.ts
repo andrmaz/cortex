@@ -41,6 +41,7 @@ const prisma = {
     create: jest.fn(),
   },
   document: {
+    findFirst: jest.fn(),
     create: jest.fn(),
     delete: jest.fn(),
   },
@@ -87,6 +88,10 @@ describe("SourceService", () => {
     await expect(
       service.uploadDocument("org-1", source.id, file),
     ).resolves.toEqual({ document, jobId: "job-1" });
+    expect(prisma.source.findUnique).toHaveBeenCalledWith({
+      where: { id: source.id, organizationId: "org-1" },
+    });
+    expect(prisma.document.findFirst).not.toHaveBeenCalled();
     expect(prisma.document.create).toHaveBeenCalledWith({
       data: {
         sourceId: source.id,
@@ -114,21 +119,53 @@ describe("SourceService", () => {
     await expect(
       service.uploadDocument("org-1", "other-source", file),
     ).rejects.toThrow(NotFoundException);
+    expect(prisma.source.findUnique).toHaveBeenCalledWith({
+      where: { id: "other-source", organizationId: "org-1" },
+    });
     expect(prisma.document.create).not.toHaveBeenCalled();
     expect(queue.enqueueDocument).not.toHaveBeenCalled();
   });
 
-  it("removes the document if enqueueing fails", async () => {
+  it("reuses an existing document when the idempotency key matches", async () => {
+    const existing = {
+      ...document,
+      metadata: { ...document.metadata, idempotencyKey: "key-1" },
+    };
+    prisma.source.findUnique.mockResolvedValue(source);
+    prisma.document.findFirst.mockResolvedValue(existing);
+    queue.enqueueDocument.mockResolvedValue(existing.id);
+
+    await expect(
+      service.uploadDocument("org-1", source.id, file, "key-1"),
+    ).resolves.toEqual({ document: existing, jobId: existing.id });
+    expect(prisma.document.findFirst).toHaveBeenCalledWith({
+      where: {
+        sourceId: source.id,
+        organizationId: "org-1",
+        metadata: {
+          path: ["idempotencyKey"],
+          equals: "key-1",
+        },
+      },
+    });
+    expect(prisma.document.create).not.toHaveBeenCalled();
+    expect(queue.enqueueDocument).toHaveBeenCalledWith({
+      organizationId: "org-1",
+      sourceId: source.id,
+      documentId: existing.id,
+      fileName: "handbook.txt",
+      mimeType: "text/plain",
+    });
+  });
+
+  it("preserves the document if enqueueing fails", async () => {
     prisma.source.findUnique.mockResolvedValue(source);
     prisma.document.create.mockResolvedValue(document);
-    prisma.document.delete.mockResolvedValue(document);
     queue.enqueueDocument.mockRejectedValue(new Error("Redis unavailable"));
 
     await expect(
       service.uploadDocument("org-1", source.id, file),
     ).rejects.toThrow(ServiceUnavailableException);
-    expect(prisma.document.delete).toHaveBeenCalledWith({
-      where: { id: document.id },
-    });
+    expect(prisma.document.delete).not.toHaveBeenCalled();
   });
 });

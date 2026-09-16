@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { adminAuthHeaders } from "../_lib/admin-auth";
 import type { Source, UploadedDocument } from "./types";
 
@@ -9,6 +10,29 @@ async function parseJsonSafe<T>(res: Response): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "TimeoutError" || error.name === "AbortError")
+  );
+}
+
+export function documentUploadIdempotencyKey(
+  sourceId: string,
+  file: Pick<File, "name" | "size">,
+  bytes: Uint8Array,
+): string {
+  return createHash("sha256")
+    .update(sourceId)
+    .update("\0")
+    .update(file.name)
+    .update("\0")
+    .update(String(file.size))
+    .update("\0")
+    .update(bytes)
+    .digest("hex");
 }
 
 export async function fetchSources(): Promise<Source[]> {
@@ -49,19 +73,35 @@ export async function createSource(
 export async function uploadSourceDocument(
   sourceId: string,
   file: File,
+  idempotencyKey?: string,
 ): Promise<{ document?: UploadedDocument; error?: string }> {
   const body = new FormData();
   body.set("file", file);
+  const headers = new Headers(await adminAuthHeaders());
+  if (idempotencyKey) {
+    headers.set("Idempotency-Key", idempotencyKey);
+  }
 
-  const res = await fetch(
-    `${API_URL}/api/admin/sources/${encodeURIComponent(sourceId)}/documents`,
-    {
-      method: "POST",
-      headers: await adminAuthHeaders(),
-      body,
-      signal: AbortSignal.timeout(15_000),
-    },
-  );
+  let res: Response;
+  try {
+    res = await fetch(
+      `${API_URL}/api/admin/sources/${encodeURIComponent(sourceId)}/documents`,
+      {
+        method: "POST",
+        headers,
+        body,
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+  } catch (error) {
+    if (isTimeoutError(error)) {
+      return {
+        error:
+          "Upload timed out before a response arrived. Retry the same file; the server will reuse the original document if it already exists.",
+      };
+    }
+    throw error;
+  }
 
   if (!res.ok) {
     const responseBody = await parseJsonSafe<{ message?: string }>(res);
