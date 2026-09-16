@@ -10,6 +10,7 @@
     "CORTEX_API_URL",
     "CORTEX_WEB_URL",
     "CORTEX_ADMIN_TOKEN",
+    "REDIS_URL",
     "NODE_ENV"
   ],
   "tasks": {
