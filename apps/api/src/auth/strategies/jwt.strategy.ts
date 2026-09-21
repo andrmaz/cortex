@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
+import invariant from "invariant";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import type { JwtPayload, AuthenticatedUser } from "../auth.types";
 
@@ -7,9 +8,7 @@ import type { JwtPayload, AuthenticatedUser } from "../auth.types";
 export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
   constructor() {
     const jwtSecret = process.env["JWT_SECRET"];
-    if (!jwtSecret) {
-      throw new Error("JWT_SECRET environment variable is required");
-    }
+    invariant(jwtSecret, "JWT_SECRET environment variable is required");
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),

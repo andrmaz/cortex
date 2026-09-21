@@ -1,3 +1,4 @@
+import invariant from "invariant";
 import { createOrgScopedClient } from "./extension.js";
 import { runWithOrgContext, runWithoutOrgScope } from "./context.js";
 import { MissingOrgContextError, OrgScopeViolationError } from "./errors.js";
@@ -42,9 +43,7 @@ function callModel(
 ): Promise<unknown> {
   const delegate = client[model] as Record<string, Impl> | undefined;
   const impl = delegate?.[operation];
-  if (!impl) {
-    throw new Error(`Fake client has no ${model}.${operation}() registered`);
-  }
+  invariant(impl, "Fake client has no %s.%s() registered", model, operation);
   return impl(args);
 }
 
@@ -69,9 +68,7 @@ function callClientOperation(
   args: unknown,
 ): Promise<unknown> {
   const impl = client[operation] as Impl | undefined;
-  if (!impl) {
-    throw new Error(`Fake client has no ${operation}() registered`);
-  }
+  invariant(impl, "Fake client has no %s() registered", operation);
   return impl(args);
 }
 
