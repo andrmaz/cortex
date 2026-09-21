@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
+import invariant from "invariant";
 import { AuthService } from "./auth.service";
 import { UserService } from "./user.service";
 import { AuthController, MeController } from "./auth.controller";
@@ -15,9 +16,7 @@ import { PrismaModule } from "../prisma/prisma.module";
     JwtModule.registerAsync({
       useFactory: () => {
         const secret = process.env["JWT_SECRET"];
-        if (!secret) {
-          throw new Error("JWT_SECRET environment variable is required");
-        }
+        invariant(secret, "JWT_SECRET environment variable is required");
         return { secret, signOptions: { expiresIn: "8h" } };
       },
     }),

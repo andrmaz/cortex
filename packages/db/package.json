@@ -29,10 +29,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@prisma/client": "^7.8.0"
+    "@prisma/client": "^7.8.0",
+    "invariant": "^2.2.4"
   },
   "devDependencies": {
     "@cortex/typescript-config": "workspace:*",
+    "@types/invariant": "^2.2.37",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
     "jest": "^30.4.2",

@@ -2,12 +2,11 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "db/client";
 import { createOrgScopedClient } from "db";
+import invariant from "invariant";
 
 function createRawPrismaClient(): PrismaClient {
   const connectionString = process.env["DATABASE_URL"];
-  if (!connectionString) {
-    throw new Error("DATABASE_URL environment variable is required");
-  }
+  invariant(connectionString, "DATABASE_URL environment variable is required");
   const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
 }
