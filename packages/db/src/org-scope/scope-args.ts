@@ -1,3 +1,4 @@
+import invariant from "invariant";
 import type { OrgScopeConfig } from "./config.js";
 import { ORG_SCOPE_CONFIG } from "./config.js";
 import { OrgScopeViolationError, UnknownOrgScopeModelError } from "./errors.js";
@@ -111,7 +112,7 @@ export function computeScopedArgs(
       return applyRelationScope(nextArgs, operation, organizationId, model);
     default: {
       const exhaustiveCheck: never = config;
-      return exhaustiveCheck;
+      invariant(false, "Unhandled org scope kind: %s", exhaustiveCheck);
     }
   }
 }
@@ -205,9 +206,11 @@ function applyRelationScope(
   model: string,
 ): Record<string, unknown> {
   const config = getScopeConfig(model);
-  if (config.kind !== "relation") {
-    throw unsupportedOperation(model, operation);
-  }
+  invariant(
+    config.kind === "relation",
+    'Expected relation org scope for "%s"',
+    model,
+  );
   if (CREATE_OPERATIONS.has(operation)) {
     // Verified separately in extension.ts via a database round trip.
     return args;

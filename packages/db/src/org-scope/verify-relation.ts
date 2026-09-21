@@ -1,3 +1,4 @@
+import invariant from "invariant";
 import type { RelationVerification } from "./config.js";
 import { OrgScopeViolationError } from "./errors.js";
 import { isPlainObject } from "./where.js";
@@ -86,7 +87,12 @@ export async function verifyRelationOwnership(
   await Promise.all(
     uniqueChecks.map(async ({ parentModel, where }) => {
       const parentDelegate = client[toModelDelegateName(parentModel)];
-      const parent = await parentDelegate?.findUnique({ where });
+      invariant(
+        parentDelegate,
+        'Org scope config references parent model "%s" with no client delegate',
+        parentModel,
+      );
+      const parent = await parentDelegate.findUnique({ where });
       if (!parent) {
         throw new OrgScopeViolationError(model, operation);
       }

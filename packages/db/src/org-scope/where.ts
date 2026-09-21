@@ -1,3 +1,5 @@
+import invariant from "invariant";
+
 /** Narrows an unknown value to a plain filter/data object Prisma would accept. */
 export function isPlainObject(
   value: unknown,
@@ -14,13 +16,19 @@ export function buildRelationFilter(
   chain: readonly [string, ...string[]],
   organizationId: string,
 ): Record<string, unknown> {
+  return buildRelationFilterFromSegments(chain, organizationId);
+}
+
+function buildRelationFilterFromSegments(
+  chain: readonly string[],
+  organizationId: string,
+): Record<string, unknown> {
   const [head, ...rest] = chain;
+  invariant(head, "Relation filter chain must be non-empty");
   if (rest.length === 0) {
     return { [head]: organizationId };
   }
-  return {
-    [head]: buildRelationFilter(rest as [string, ...string[]], organizationId),
-  };
+  return { [head]: buildRelationFilterFromSegments(rest, organizationId) };
 }
 
 /**

@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
+import invariant from "invariant";
 import {
   Strategy,
   type VerifyCallback,
@@ -10,10 +11,19 @@ import type { AuthenticatedUser } from "../auth.types";
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, "google") {
   constructor() {
+    const clientID = process.env["GOOGLE_CLIENT_ID"];
+    const clientSecret = process.env["GOOGLE_CLIENT_SECRET"];
+    invariant(clientID, "GOOGLE_CLIENT_ID environment variable is required");
+    invariant(
+      clientSecret,
+      "GOOGLE_CLIENT_SECRET environment variable is required",
+    );
+
     super({
-      clientID: process.env["GOOGLE_CLIENT_ID"] ?? "",
-      clientSecret: process.env["GOOGLE_CLIENT_SECRET"] ?? "",
-      callbackURL: process.env["GOOGLE_CALLBACK_URL"] ?? "/auth/google/callback",
+      clientID,
+      clientSecret,
+      callbackURL:
+        process.env["GOOGLE_CALLBACK_URL"] ?? "/auth/google/callback",
       scope: ["email", "profile"],
     });
   }
@@ -26,8 +36,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, "google") {
   ): void {
     // Require a verified email address – unverified emails must not be used
     // for identity or domain-based org matching.
-    const verifiedEmail = profile.emails?.find((e) => e.verified === true)
-      ?.value;
+    const verifiedEmail = profile.emails?.find(
+      (e) => e.verified === true,
+    )?.value;
 
     if (!verifiedEmail) {
       done(new Error("No verified email returned from Google"), undefined);
