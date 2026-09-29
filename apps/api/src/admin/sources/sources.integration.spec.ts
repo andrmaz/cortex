@@ -211,7 +211,7 @@ describe("Admin Sources Integration", () => {
   it("reuses an existing document when the idempotency key matches", async () => {
     const existing = {
       ...document,
-      metadata: { idempotencyKey: "upload-1" },
+      idempotencyKey: "upload-1",
     };
     prisma.source.findUnique.mockResolvedValue(source);
     prisma.document.findFirst.mockResolvedValue(existing);

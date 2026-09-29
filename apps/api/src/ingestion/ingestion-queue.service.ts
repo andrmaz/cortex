@@ -5,6 +5,7 @@ export const INGESTION_QUEUE_NAME = "document-ingestion";
 export const INGEST_DOCUMENT_JOB_NAME = "ingest-document";
 export const FAILED_JOB_RETENTION_AGE_SECONDS = 7 * 24 * 60 * 60;
 export const FAILED_JOB_RETENTION_COUNT = 1_000;
+export const QUEUE_MAX_RETRIES_PER_REQUEST = 1;
 
 export interface IngestDocumentJobData {
   organizationId: string;
@@ -22,6 +23,8 @@ export class IngestionQueueService implements OnModuleDestroy {
     this.queue ??= new Queue<IngestDocumentJobData>(INGESTION_QUEUE_NAME, {
       connection: {
         url: process.env["REDIS_URL"] ?? "redis://localhost:6379",
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: QUEUE_MAX_RETRIES_PER_REQUEST,
       },
       defaultJobOptions: {
         attempts: 3,

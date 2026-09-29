@@ -3,6 +3,7 @@ import {
   FAILED_JOB_RETENTION_AGE_SECONDS,
   FAILED_JOB_RETENTION_COUNT,
   INGEST_DOCUMENT_JOB_NAME,
+  QUEUE_MAX_RETRIES_PER_REQUEST,
   INGESTION_QUEUE_NAME,
   IngestionQueueService,
   type IngestDocumentJobData,
@@ -48,7 +49,11 @@ describe("IngestionQueueService", () => {
     expect(Queue).toHaveBeenCalledWith(
       INGESTION_QUEUE_NAME,
       expect.objectContaining({
-        connection: { url: "redis://queue.example:6379" },
+        connection: {
+          url: "redis://queue.example:6379",
+          enableOfflineQueue: false,
+          maxRetriesPerRequest: QUEUE_MAX_RETRIES_PER_REQUEST,
+        },
         defaultJobOptions: expect.objectContaining({
           attempts: 3,
           removeOnFail: {

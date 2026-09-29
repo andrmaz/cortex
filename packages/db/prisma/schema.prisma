@@ -123,6 +123,7 @@ model Document {
   organizationId String   @map("organization_id")
   content        String
   metadata       Json     @default("{}")
+  idempotencyKey String?  @map("idempotency_key")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -131,6 +132,8 @@ model Document {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   chunks       Chunk[]
 
+  // NULL keys stay distinct in PostgreSQL, so uploads without a key do not collide.
+  @@unique([organizationId, sourceId, idempotencyKey])
   @@index([sourceId])
   @@index([organizationId])
   @@map("documents")

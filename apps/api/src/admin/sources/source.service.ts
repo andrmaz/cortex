@@ -4,6 +4,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import type { Document, Source } from "db/client";
+import { isPrismaUniqueConstraintError } from "../../common/prisma-errors";
 import { PrismaService } from "../../prisma/prisma.service";
 import { IngestionQueueService } from "../../ingestion/ingestion-queue.service";
 import type { CreateSourceDto } from "./source.dto";
@@ -63,19 +64,12 @@ export class SourceService {
         sourceId,
         idempotencyKey,
       )) ??
-      (await this.prisma.document.create({
-        data: {
-          sourceId,
-          organizationId,
-          content: file.buffer.toString("utf8"),
-          metadata: {
-            fileName: file.originalname,
-            mimeType: file.mimetype,
-            size: file.size,
-            ...(idempotencyKey ? { idempotencyKey } : {}),
-          },
-        },
-      }));
+      (await this.createDocument(
+        organizationId,
+        sourceId,
+        file,
+        idempotencyKey,
+      ));
 
     try {
       const jobId = await this.ingestionQueue.enqueueDocument({
@@ -96,6 +90,43 @@ export class SourceService {
     }
   }
 
+  private async createDocument(
+    organizationId: string,
+    sourceId: string,
+    file: UploadFile,
+    idempotencyKey: string | undefined,
+  ): Promise<Document> {
+    try {
+      return await this.prisma.document.create({
+        data: {
+          sourceId,
+          organizationId,
+          content: file.buffer.toString("utf8"),
+          metadata: {
+            fileName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+          },
+          ...(idempotencyKey ? { idempotencyKey } : {}),
+        },
+      });
+    } catch (error) {
+      if (!idempotencyKey || !isPrismaUniqueConstraintError(error)) {
+        throw error;
+      }
+
+      const existing = await this.findDocumentByIdempotencyKey(
+        organizationId,
+        sourceId,
+        idempotencyKey,
+      );
+      if (!existing) {
+        throw error;
+      }
+      return existing;
+    }
+  }
+
   private async findDocumentByIdempotencyKey(
     organizationId: string,
     sourceId: string,
@@ -109,10 +140,7 @@ export class SourceService {
       where: {
         sourceId,
         organizationId,
-        metadata: {
-          path: ["idempotencyKey"],
-          equals: idempotencyKey,
-        },
+        idempotencyKey,
       },
     });
   }

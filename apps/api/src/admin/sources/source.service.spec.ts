@@ -129,7 +129,7 @@ describe("SourceService", () => {
   it("reuses an existing document when the idempotency key matches", async () => {
     const existing = {
       ...document,
-      metadata: { ...document.metadata, idempotencyKey: "key-1" },
+      idempotencyKey: "key-1",
     };
     prisma.source.findUnique.mockResolvedValue(source);
     prisma.document.findFirst.mockResolvedValue(existing);
@@ -142,10 +142,7 @@ describe("SourceService", () => {
       where: {
         sourceId: source.id,
         organizationId: "org-1",
-        metadata: {
-          path: ["idempotencyKey"],
-          equals: "key-1",
-        },
+        idempotencyKey: "key-1",
       },
     });
     expect(prisma.document.create).not.toHaveBeenCalled();
@@ -156,6 +153,77 @@ describe("SourceService", () => {
       fileName: "handbook.txt",
       mimeType: "text/plain",
     });
+  });
+
+  it("stores the idempotency key on the document row", async () => {
+    prisma.source.findUnique.mockResolvedValue(source);
+    prisma.document.findFirst.mockResolvedValue(null);
+    prisma.document.create.mockResolvedValue({
+      ...document,
+      idempotencyKey: "key-1",
+    });
+    queue.enqueueDocument.mockResolvedValue(document.id);
+
+    await service.uploadDocument("org-1", source.id, file, "key-1");
+
+    expect(prisma.document.create).toHaveBeenCalledWith({
+      data: {
+        sourceId: source.id,
+        organizationId: "org-1",
+        idempotencyKey: "key-1",
+        content: "Hello Cortex",
+        metadata: {
+          fileName: "handbook.txt",
+          mimeType: "text/plain",
+          size: 12,
+        },
+      },
+    });
+  });
+
+  it("returns the existing document when a concurrent insert wins the key", async () => {
+    const existing = { ...document, idempotencyKey: "key-1" };
+    prisma.source.findUnique.mockResolvedValue(source);
+    prisma.document.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(existing);
+    prisma.document.create.mockRejectedValue({ code: "P2002" });
+    queue.enqueueDocument.mockResolvedValue(existing.id);
+
+    await expect(
+      service.uploadDocument("org-1", source.id, file, "key-1"),
+    ).resolves.toEqual({ document: existing, jobId: existing.id });
+    expect(prisma.document.findFirst).toHaveBeenNthCalledWith(2, {
+      where: {
+        sourceId: source.id,
+        organizationId: "org-1",
+        idempotencyKey: "key-1",
+      },
+    });
+  });
+
+  it("rethrows a unique conflict when the winning document cannot be reread", async () => {
+    const conflict = { code: "P2002" };
+    prisma.source.findUnique.mockResolvedValue(source);
+    prisma.document.findFirst.mockResolvedValue(null);
+    prisma.document.create.mockRejectedValue(conflict);
+
+    await expect(
+      service.uploadDocument("org-1", source.id, file, "key-1"),
+    ).rejects.toBe(conflict);
+    expect(queue.enqueueDocument).not.toHaveBeenCalled();
+  });
+
+  it("rethrows document create errors that are not unique conflicts", async () => {
+    const failure = new Error("database unavailable");
+    prisma.source.findUnique.mockResolvedValue(source);
+    prisma.document.findFirst.mockResolvedValue(null);
+    prisma.document.create.mockRejectedValue(failure);
+
+    await expect(
+      service.uploadDocument("org-1", source.id, file, "key-1"),
+    ).rejects.toBe(failure);
+    expect(prisma.document.findFirst).toHaveBeenCalledTimes(1);
   });
 
   it("preserves the document if enqueueing fails", async () => {
