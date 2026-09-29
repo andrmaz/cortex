@@ -22,6 +22,8 @@ export class IngestionQueueService implements OnModuleDestroy {
     this.queue ??= new Queue<IngestDocumentJobData>(INGESTION_QUEUE_NAME, {
       connection: {
         url: process.env["REDIS_URL"] ?? "redis://localhost:6379",
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 1,
       },
       defaultJobOptions: {
         attempts: 3,

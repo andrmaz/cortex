@@ -48,7 +48,11 @@ describe("IngestionQueueService", () => {
     expect(Queue).toHaveBeenCalledWith(
       INGESTION_QUEUE_NAME,
       expect.objectContaining({
-        connection: { url: "redis://queue.example:6379" },
+        connection: {
+          url: "redis://queue.example:6379",
+          enableOfflineQueue: false,
+          maxRetriesPerRequest: 1,
+        },
         defaultJobOptions: expect.objectContaining({
           attempts: 3,
           removeOnFail: {

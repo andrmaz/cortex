@@ -121,6 +121,8 @@ model Document {
   id             String   @id @default(uuid())
   sourceId       String   @map("source_id")
   organizationId String   @map("organization_id")
+  /// Stable upload retry key. Null uploads are not deduplicated.
+  idempotencyKey String?  @map("idempotency_key")
   content        String
   metadata       Json     @default("{}")
   createdAt      DateTime @default(now())
@@ -131,6 +133,7 @@ model Document {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   chunks       Chunk[]
 
+  @@unique([organizationId, sourceId, idempotencyKey])
   @@index([sourceId])
   @@index([organizationId])
   @@map("documents")

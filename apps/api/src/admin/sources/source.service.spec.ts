@@ -142,13 +142,50 @@ describe("SourceService", () => {
       where: {
         sourceId: source.id,
         organizationId: "org-1",
-        metadata: {
-          path: ["idempotencyKey"],
-          equals: "key-1",
-        },
+        idempotencyKey: "key-1",
       },
     });
     expect(prisma.document.create).not.toHaveBeenCalled();
+    expect(queue.enqueueDocument).toHaveBeenCalledWith({
+      organizationId: "org-1",
+      sourceId: source.id,
+      documentId: existing.id,
+      fileName: "handbook.txt",
+      mimeType: "text/plain",
+    });
+  });
+
+  it("returns the winning document when a concurrent insert takes the idempotency key", async () => {
+    const existing = {
+      ...document,
+      idempotencyKey: "key-1",
+    };
+    const p2002 = Object.assign(new Error("Unique constraint failed"), {
+      code: "P2002",
+    });
+    prisma.source.findUnique.mockResolvedValue(source);
+    prisma.document.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(existing);
+    prisma.document.create.mockRejectedValue(p2002);
+    queue.enqueueDocument.mockResolvedValue(existing.id);
+
+    await expect(
+      service.uploadDocument("org-1", source.id, file, "key-1"),
+    ).resolves.toEqual({ document: existing, jobId: existing.id });
+    expect(prisma.document.create).toHaveBeenCalledWith({
+      data: {
+        sourceId: source.id,
+        organizationId: "org-1",
+        content: "Hello Cortex",
+        idempotencyKey: "key-1",
+        metadata: {
+          fileName: "handbook.txt",
+          mimeType: "text/plain",
+          size: 12,
+        },
+      },
+    });
     expect(queue.enqueueDocument).toHaveBeenCalledWith({
       organizationId: "org-1",
       sourceId: source.id,

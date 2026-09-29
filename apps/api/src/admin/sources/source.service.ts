@@ -4,6 +4,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import type { Document, Source } from "db/client";
+import { isPrismaUniqueConstraintError } from "../../common/prisma-errors";
 import { PrismaService } from "../../prisma/prisma.service";
 import { IngestionQueueService } from "../../ingestion/ingestion-queue.service";
 import type { CreateSourceDto } from "./source.dto";
@@ -57,25 +58,12 @@ export class SourceService {
       throw new NotFoundException(`Source with id "${sourceId}" not found`);
     }
 
-    const document =
-      (await this.findDocumentByIdempotencyKey(
-        organizationId,
-        sourceId,
-        idempotencyKey,
-      )) ??
-      (await this.prisma.document.create({
-        data: {
-          sourceId,
-          organizationId,
-          content: file.buffer.toString("utf8"),
-          metadata: {
-            fileName: file.originalname,
-            mimeType: file.mimetype,
-            size: file.size,
-            ...(idempotencyKey ? { idempotencyKey } : {}),
-          },
-        },
-      }));
+    const document = await this.findOrCreateDocument(
+      organizationId,
+      sourceId,
+      file,
+      idempotencyKey,
+    );
 
     try {
       const jobId = await this.ingestionQueue.enqueueDocument({
@@ -96,6 +84,52 @@ export class SourceService {
     }
   }
 
+  private async findOrCreateDocument(
+    organizationId: string,
+    sourceId: string,
+    file: UploadFile,
+    idempotencyKey: string | undefined,
+  ): Promise<Document> {
+    const existing = await this.findDocumentByIdempotencyKey(
+      organizationId,
+      sourceId,
+      idempotencyKey,
+    );
+    if (existing) {
+      return existing;
+    }
+
+    try {
+      return await this.prisma.document.create({
+        data: {
+          sourceId,
+          organizationId,
+          content: file.buffer.toString("utf8"),
+          metadata: {
+            fileName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+          },
+          ...(idempotencyKey ? { idempotencyKey } : {}),
+        },
+      });
+    } catch (error) {
+      if (!idempotencyKey || !isPrismaUniqueConstraintError(error)) {
+        throw error;
+      }
+
+      const raced = await this.findDocumentByIdempotencyKey(
+        organizationId,
+        sourceId,
+        idempotencyKey,
+      );
+      if (!raced) {
+        throw error;
+      }
+      return raced;
+    }
+  }
+
   private async findDocumentByIdempotencyKey(
     organizationId: string,
     sourceId: string,
@@ -109,10 +143,7 @@ export class SourceService {
       where: {
         sourceId,
         organizationId,
-        metadata: {
-          path: ["idempotencyKey"],
-          equals: idempotencyKey,
-        },
+        idempotencyKey,
       },
     });
   }
