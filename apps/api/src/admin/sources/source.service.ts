@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
@@ -90,12 +91,14 @@ export class SourceService {
     file: UploadFile,
     idempotencyKey: string | undefined,
   ): Promise<Document> {
+    const content = file.buffer.toString("utf8");
     const existing = await this.findDocumentByIdempotencyKey(
       organizationId,
       sourceId,
       idempotencyKey,
     );
     if (existing) {
+      this.assertMatchingUploadContent(existing, content);
       return existing;
     }
 
@@ -104,7 +107,7 @@ export class SourceService {
         data: {
           sourceId,
           organizationId,
-          content: file.buffer.toString("utf8"),
+          content,
           metadata: {
             fileName: file.originalname,
             mimeType: file.mimetype,
@@ -126,7 +129,19 @@ export class SourceService {
       if (!raced) {
         throw error;
       }
+      this.assertMatchingUploadContent(raced, content);
       return raced;
+    }
+  }
+
+  private assertMatchingUploadContent(
+    document: Document,
+    content: string,
+  ): void {
+    if (document.content !== content) {
+      throw new ConflictException(
+        "Idempotency key has already been used for different file content",
+      );
     }
   }
 

@@ -1,4 +1,8 @@
-import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import {
+  ConflictException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { PrismaService } from "../../prisma/prisma.service";
 import { IngestionQueueService } from "../../ingestion/ingestion-queue.service";
@@ -129,6 +133,7 @@ describe("SourceService", () => {
   it("reuses an existing document when the idempotency key matches", async () => {
     const existing = {
       ...document,
+      idempotencyKey: "key-1",
       metadata: { ...document.metadata, idempotencyKey: "key-1" },
     };
     prisma.source.findUnique.mockResolvedValue(source);
@@ -153,6 +158,22 @@ describe("SourceService", () => {
       fileName: "handbook.txt",
       mimeType: "text/plain",
     });
+  });
+
+  it("rejects an idempotency key reused for different file content", async () => {
+    const existing = {
+      ...document,
+      idempotencyKey: "key-1",
+      content: "Different content",
+    };
+    prisma.source.findUnique.mockResolvedValue(source);
+    prisma.document.findFirst.mockResolvedValue(existing);
+
+    await expect(
+      service.uploadDocument("org-1", source.id, file, "key-1"),
+    ).rejects.toThrow(ConflictException);
+    expect(prisma.document.create).not.toHaveBeenCalled();
+    expect(queue.enqueueDocument).not.toHaveBeenCalled();
   });
 
   it("returns the winning document when a concurrent insert takes the idempotency key", async () => {
@@ -193,6 +214,27 @@ describe("SourceService", () => {
       fileName: "handbook.txt",
       mimeType: "text/plain",
     });
+  });
+
+  it("rejects a raced idempotency key with different file content", async () => {
+    const existing = {
+      ...document,
+      idempotencyKey: "key-1",
+      content: "Different content",
+    };
+    const p2002 = Object.assign(new Error("Unique constraint failed"), {
+      code: "P2002",
+    });
+    prisma.source.findUnique.mockResolvedValue(source);
+    prisma.document.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(existing);
+    prisma.document.create.mockRejectedValue(p2002);
+
+    await expect(
+      service.uploadDocument("org-1", source.id, file, "key-1"),
+    ).rejects.toThrow(ConflictException);
+    expect(queue.enqueueDocument).not.toHaveBeenCalled();
   });
 
   it("preserves the document if enqueueing fails", async () => {
