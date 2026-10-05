@@ -234,6 +234,27 @@ describe("Admin Sources Integration", () => {
     expect(prisma.document.create).not.toHaveBeenCalled();
   });
 
+  it("rejects an idempotency key reused for different file content", async () => {
+    prisma.source.findUnique.mockResolvedValue(source);
+    prisma.document.findFirst.mockResolvedValue({
+      ...document,
+      content: "stored",
+    });
+
+    await request(app.getHttpServer())
+      .post(`/api/admin/sources/${source.id}/documents`)
+      .set("Authorization", `Bearer ${token()}`)
+      .set("Idempotency-Key", "upload-1")
+      .attach("file", Buffer.from("Hello Cortex"), {
+        filename: "handbook.txt",
+        contentType: "text/plain",
+      })
+      .expect(409);
+
+    expect(prisma.document.create).not.toHaveBeenCalled();
+    expect(queue.enqueueDocument).not.toHaveBeenCalled();
+  });
+
   it("rejects uploads without a file", async () => {
     await request(app.getHttpServer())
       .post(`/api/admin/sources/${source.id}/documents`)
