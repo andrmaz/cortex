@@ -1,38 +1,19 @@
-# AGENTS
-
-Cortex is a TypeScript monorepo for an MCP-first context, policy, and audit platform.
-
-## Essentials
-
-- Package manager: `pnpm` (workspace root).
-- Monorepo task runner: Turborepo via root scripts.
-- Non-standard command names:
-  - Type-check all workspaces: `pnpm check-types`
-  - Format markdown/typescript files: `pnpm format`
-- Closest `AGENTS.md` in the directory tree takes precedence.
-
-## Progressive Disclosure
-
-- Core guidance index: [`docs/agents/README.md`](docs/agents/README.md)
-- Commands: [`docs/agents/commands.md`](docs/agents/commands.md)
-- Code style: [`docs/agents/code-style.md`](docs/agents/code-style.md)
-- Testing: [`docs/agents/testing.md`](docs/agents/testing.md)
-- Security: [`docs/agents/security.md`](docs/agents/security.md)
-- Git and PR workflow: [`docs/agents/git-workflow.md`](docs/agents/git-workflow.md)
-- Cursor Cloud setup and run caveats: [`docs/agents/cursor-cloud.md`](docs/agents/cursor-cloud.md)
-- Deletion candidates audit: [`docs/agents/deletion-candidates.md`](docs/agents/deletion-candidates.md)
-
+---
+name: fallow
+description: Codebase intelligence for TypeScript and JavaScript. Static analysis reports changed-code risk, cleanup opportunities, duplication, circular dependencies, complexity hotspots, architecture boundaries, design-system drift, feature flags, and opt-in security candidates. Optional local similar-code discovery finds functions that may implement the same intent despite different syntax. Runtime coverage can merge production execution data. Use when asked to audit PR risk, find unused code or dependencies, compare semantically similar functions, detect duplicates, inspect architecture boundaries, merge runtime coverage, auto-fix supported issues, or run fallow.
+license: MIT
 ---
 
-<!-- fallow:setup-hooks:start -->
+<!-- fallow:agent-install v1 skill=stub version=3.31.0 -->
 
-## Fallow local gate
+# Fallow
 
-Before any `git commit` or `git push`, run `fallow audit --format json --quiet --explain --gate-marker agent`. If the verdict is `fail`, fix the reported findings before retrying. Treat JSON runtime errors like `{ "error": true, ... }` as non-blocking.
+This pointer skill was written by `fallow agent install`. The complete, version-matched skill ships inside the installed npm package:
 
-Audit defaults to `gate=new-only`: only findings introduced by the current changeset affect the verdict. Inherited findings on touched files are reported under `attribution` and annotated with `introduced: false`, but do not block the commit. Set `[audit] gate = "all"` in `fallow.toml` to gate every finding in changed files.
+- `node_modules/fallow/skills/fallow/SKILL.md` (start here)
+- `node_modules/fallow/skills/fallow/references/` (CLI reference, MCP tools, patterns, gotchas)
 
-For non-skill agents, treat the task map below as the local onboarding source: run the listed fallow command before destructive edits, before commits, and before pull request handoff.
+Read that `SKILL.md` before running fallow. Resolve current flags from `fallow --help` and `fallow <command> --help`, never from memory.
 
 ## Fallow task map
 
@@ -53,5 +34,3 @@ For non-skill agents, treat the task map below as the local onboarding source: r
 | surface security candidates                                       | `fallow security`                                                                                                                                       |
 | understand a finding                                              | `fallow explain <issue-type>`                                                                                                                           |
 | scope a monorepo                                                  | `--workspace <glob> / --changed-workspaces <ref>` (global flags, prefix any command)                                                                    |
-
-<!-- fallow:setup-hooks:end -->
