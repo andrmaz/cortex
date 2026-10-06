@@ -1,0 +1,108 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const repoRoot = new URL("../", import.meta.url);
+
+/** Upstream phase and dependency skills required by issue #38. */
+const requiredUpstreamSkills = [
+  "code-review",
+  "codebase-design",
+  "domain-modeling",
+  "grill-with-docs",
+  "grilling",
+  "implement",
+  "pr",
+  "retro",
+  "tdd",
+  "to-spec",
+  "writing-for-agents",
+];
+
+const lifecycleCommands = [
+  "/to-spec",
+  "/grill-with-docs",
+  "/codebase-design",
+  "/implement",
+  "/tdd",
+  "/code-review",
+  "/pr",
+  "/retro",
+];
+
+const lifecyclePhases = [
+  "### Planning",
+  "### Analysis",
+  "### Design",
+  "### Coding",
+  "### Testing",
+  "### Deployment",
+  "### Maintenance",
+];
+
+const readRepoFile = (path) =>
+  readFile(new URL(path, repoRoot), { encoding: "utf8" });
+
+test("required SDLC skills are installed and locked", async () => {
+  const lock = JSON.parse(await readRepoFile("skills-lock.json"));
+
+  await Promise.all(
+    requiredUpstreamSkills.map(async (skillName) => {
+      const manifest = await readRepoFile(
+        `.agents/skills/${skillName}/SKILL.md`,
+      );
+
+      assert.match(manifest, new RegExp(`^name: ${skillName}$`, "m"));
+      assert.equal(lock.skills[skillName]?.source, "mattpocock/skills");
+    }),
+  );
+});
+
+test("issue-sdlc orchestrates autonomous issue delivery", async () => {
+  const [orchestrator, agentGuidance] = await Promise.all([
+    readRepoFile(".agents/skills/issue-sdlc/SKILL.md"),
+    readRepoFile("AGENTS.md"),
+  ]);
+
+  assert.match(orchestrator, /^name: issue-sdlc$/m);
+  assert.match(orchestrator, /docs\/agents\/sdlc\.md/);
+  assert.match(orchestrator, /do not create a duplicate issue/i);
+  assert.match(agentGuidance, /issue-sdlc/);
+});
+
+test("agent guidance exposes the complete issue delivery lifecycle", async () => {
+  const [agentGuidance, lifecycle, issueTracker, domain, glossary, triage] =
+    await Promise.all([
+      readRepoFile("AGENTS.md"),
+      readRepoFile("docs/agents/sdlc.md"),
+      readRepoFile("docs/agents/issue-tracker.md"),
+      readRepoFile("docs/agents/domain.md"),
+      readRepoFile("GLOSSARY.md"),
+      readRepoFile("docs/agents/triage-labels.md"),
+    ]);
+
+  assert.match(agentGuidance, /docs\/agents\/sdlc\.md/);
+  assert.match(agentGuidance, /docs\/agents\/issue-tracker\.md/);
+  assert.match(agentGuidance, /docs\/agents\/domain\.md/);
+  assert.match(issueTracker, /GitHub Issues/);
+  assert.match(issueTracker, /triage-labels\.md/);
+  assert.match(domain, /GLOSSARY\.md/);
+  assert.match(glossary, /^# Ubiquitous Language$/m);
+  assert.match(triage, /ready-for-agent/);
+
+  for (const command of lifecycleCommands) {
+    assert.ok(lifecycle.includes(command), `${command} is missing from SDLC`);
+  }
+
+  let previousPhaseIndex = -1;
+  for (const phase of lifecyclePhases) {
+    const phaseIndex = lifecycle.indexOf(phase);
+    assert.ok(
+      phaseIndex > previousPhaseIndex,
+      `${phase} is missing or unordered`,
+    );
+    previousPhaseIndex = phaseIndex;
+  }
+
+  assert.match(lifecycle, /do not create a duplicate issue/i);
+});
