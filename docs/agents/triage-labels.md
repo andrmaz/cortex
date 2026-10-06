@@ -1,6 +1,6 @@
 # Triage Labels
 
-The triage skill uses these canonical roles as the GitHub label names:
+These are the canonical GitHub label names for issue triage state:
 
 - `needs-triage`: a maintainer needs to evaluate the issue.
 - `needs-info`: the issue is waiting for information from its reporter.

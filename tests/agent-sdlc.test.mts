@@ -17,7 +17,7 @@ const requiredUpstreamSkills = [
   "tdd",
   "to-spec",
   "writing-for-agents",
-];
+] as const;
 
 const lifecycleCommands = [
   "/to-spec",
@@ -28,7 +28,7 @@ const lifecycleCommands = [
   "/code-review",
   "/pr",
   "/retro",
-];
+] as const;
 
 const lifecyclePhases = [
   "### Planning",
@@ -38,13 +38,15 @@ const lifecyclePhases = [
   "### Testing",
   "### Deployment",
   "### Maintenance",
-];
+] as const;
 
-const readRepoFile = (path) =>
+const readRepoFile = (path: string) =>
   readFile(new URL(path, repoRoot), { encoding: "utf8" });
 
 test("required SDLC skills are installed and locked", async () => {
-  const lock = JSON.parse(await readRepoFile("skills-lock.json"));
+  const lock = JSON.parse(await readRepoFile("skills-lock.json")) as {
+    skills: Record<string, { source?: string }>;
+  };
 
   await Promise.all(
     requiredUpstreamSkills.map(async (skillName) => {

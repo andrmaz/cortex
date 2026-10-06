@@ -27,7 +27,7 @@ Cortex is a TypeScript monorepo for an MCP-first context, policy, and audit plat
 
 ### Issue delivery
 
-Use the `issue-sdlc` skill for autonomous issue-to-pull-request work. See [`docs/agents/sdlc.md`](docs/agents/sdlc.md).
+Use the `issue-sdlc` skill when asked to take an existing GitHub issue through implementation and pull request delivery.
 
 ### Issue tracker
 
