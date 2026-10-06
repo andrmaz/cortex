@@ -27,6 +27,7 @@ docs/
 - Shared testing rules: [`testing.md`](./testing.md)
 - Shared security rules: [`security.md`](./security.md)
 - Commit and PR policy: [`git-workflow.md`](./git-workflow.md)
+- Fallow codebase intelligence: [`fallow.md`](./fallow.md)
 - API-specific guidance: [`api.md`](./api.md)
 - Web-specific guidance: [`web.md`](./web.md)
 - DB-specific guidance: [`db.md`](./db.md)
