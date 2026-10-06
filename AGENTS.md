@@ -22,4 +22,4 @@ Cortex is a TypeScript monorepo for an MCP-first context, policy, and audit plat
 - Cursor Cloud setup and run caveats: [`docs/agents/cursor-cloud.md`](docs/agents/cursor-cloud.md)
 - Deletion candidates audit: [`docs/agents/deletion-candidates.md`](docs/agents/deletion-candidates.md)
 
-https://www.aihero.dev/ai-coding-dictionary/context-pointer
+- For Fallow codebase audits, cleanup, and PR review, read [`.agents/skills/fallow/SKILL.md`](.agents/skills/fallow/SKILL.md) first.
