@@ -17,6 +17,7 @@ docs/
     issue-tracker.md
     triage-labels.md
     domain.md
+    fallow.md
     api.md
     web.md
     db.md
@@ -35,6 +36,7 @@ docs/
 - Issue tracker operations: [`issue-tracker.md`](./issue-tracker.md)
 - Triage label vocabulary: [`triage-labels.md`](./triage-labels.md)
 - Domain documentation conventions: [`domain.md`](./domain.md)
+- Fallow codebase intelligence: [`fallow.md`](./fallow.md)
 - API-specific guidance: [`api.md`](./api.md)
 - Web-specific guidance: [`web.md`](./web.md)
 - DB-specific guidance: [`db.md`](./db.md)

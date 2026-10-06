@@ -22,6 +22,7 @@ Cortex is a TypeScript monorepo for an MCP-first context, policy, and audit plat
 - End-to-end issue delivery: [`docs/agents/sdlc.md`](docs/agents/sdlc.md)
 - Cursor Cloud setup and run caveats: [`docs/agents/cursor-cloud.md`](docs/agents/cursor-cloud.md)
 - Deletion candidates audit: [`docs/agents/deletion-candidates.md`](docs/agents/deletion-candidates.md)
+- Fallow codebase audits, cleanup, and PR review: [`docs/agents/fallow.md`](docs/agents/fallow.md)
 
 ## Agent Skills
 
