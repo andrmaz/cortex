@@ -1,0 +1,39 @@
+name: Fallow
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit changed code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit changed code with Fallow
+        uses: fallow-rs/fallow@71369f80d099e25726ad04382f15aef14a251abc # v3.31.0
+        with:
+          command: audit
+          version: 3.31.0
+          format: compact
+          gate: new-only
+          fail-on-issues: true

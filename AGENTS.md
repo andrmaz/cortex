@@ -21,3 +21,5 @@ Cortex is a TypeScript monorepo for an MCP-first context, policy, and audit plat
 - Git and PR workflow: [`docs/agents/git-workflow.md`](docs/agents/git-workflow.md)
 - Cursor Cloud setup and run caveats: [`docs/agents/cursor-cloud.md`](docs/agents/cursor-cloud.md)
 - Deletion candidates audit: [`docs/agents/deletion-candidates.md`](docs/agents/deletion-candidates.md)
+
+- Fallow codebase audits, cleanup, and PR review: [`docs/agents/fallow.md`](docs/agents/fallow.md)
