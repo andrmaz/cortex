@@ -2,6 +2,8 @@
 
 Use this lifecycle when a user asks an agent to take an existing issue through implementation and pull request delivery. The issue is the durable specification; do not create a duplicate issue.
 
+Phases follow the classic [SDLC](https://www.ibm.com/think/topics/sdlc) shape, wired to this repository's agent skills.
+
 ## Entry
 
 1. Fetch the complete issue, comments, and labels using [`issue-tracker.md`](./issue-tracker.md).
@@ -12,25 +14,25 @@ Use this lifecycle when a user asks an agent to take an existing issue through i
 
 ### Planning
 
-Use `/to-spec` as the planning standard. Treat an actionable existing issue as the specification instead of publishing a duplicate; when work starts from a conversation without an issue, use the skill to publish one.
+Use `/grill-with-docs` to sharpen the plan and capture durable domain language or architecture decisions when they emerge. For an actionable existing issue, only grill material open questions that would change the result.
 
-**Gate:** the problem, acceptance criteria, scope, and verification surface are explicit.
+**Gate:** material ambiguities are resolved, and remaining assumptions are explicit.
 
 ### Analysis
 
-Explore existing behavior and prior art before selecting a solution. Use `/grill-with-docs` when genuine ambiguity needs stakeholder decisions; record resolved domain language or durable architecture decisions as directed by the skill.
+Use `/to-spec` as the analysis standard. Treat an actionable existing issue as the specification instead of publishing a duplicate; when work starts from a conversation without an issue, use the skill to publish one.
 
-**Gate:** the root cause or capability gap is supported by evidence, and remaining assumptions are explicit.
+**Gate:** the problem, acceptance criteria, scope, and verification surface are explicit.
 
 ### Design
 
-Use `/codebase-design` when the change introduces or alters a module interface or seam. Prefer an existing seam and the smallest design that hides the required complexity.
+Use `/to-tickets` when the change spans multiple context windows. Prefer the existing issue as a single ticket when it already fits one session. When decomposing, publish child tickets on the configured tracker and leave the parent open and unchanged. Draft tickets with the project's domain vocabulary, respect ADRs, and prefer existing seams over new ones.
 
-**Gate:** ownership, interfaces, and test seams are clear without speculative abstractions.
+**Gate:** work is sequenced as one or more tracer-bullet tickets with clear blocking edges, ownership, and test seams, or the existing issue is confirmed as a single deliverable ticket.
 
 ### Coding
 
-Use `/implement` to execute the issue. Use `/tdd` at the chosen seams where a failing test can demonstrate the missing behavior. Keep unrelated changes out of the diff.
+Use `/implement` to execute the issue or the next ready ticket. Use `/tdd` at the chosen seams where a failing test can demonstrate the missing behavior. Keep unrelated changes out of the diff.
 
 **Gate:** every in-scope requirement is implemented and focused tests pass.
 

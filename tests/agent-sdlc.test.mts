@@ -7,7 +7,6 @@ const repoRoot = new URL("../", import.meta.url);
 /** Upstream phase and dependency skills required by issue #38. */
 const requiredUpstreamSkills = [
   "code-review",
-  "codebase-design",
   "domain-modeling",
   "grill-with-docs",
   "grilling",
@@ -16,13 +15,14 @@ const requiredUpstreamSkills = [
   "retro",
   "tdd",
   "to-spec",
+  "to-tickets",
   "writing-for-agents",
 ] as const;
 
 const lifecycleCommands = [
-  "/to-spec",
   "/grill-with-docs",
-  "/codebase-design",
+  "/to-spec",
+  "/to-tickets",
   "/implement",
   "/tdd",
   "/code-review",
@@ -94,6 +94,24 @@ test("agent guidance exposes the complete issue delivery lifecycle", async () =>
 
   for (const command of lifecycleCommands) {
     assert.ok(lifecycle.includes(command), `${command} is missing from SDLC`);
+  }
+
+  const phaseSkillOrder = [
+    { phase: "### Planning", skill: "/grill-with-docs" },
+    { phase: "### Analysis", skill: "/to-spec" },
+    { phase: "### Design", skill: "/to-tickets" },
+  ] as const;
+
+  for (const { phase, skill } of phaseSkillOrder) {
+    const phaseIndex = lifecycle.indexOf(phase);
+    const skillIndex = lifecycle.indexOf(skill, phaseIndex);
+    const nextPhaseIndex = lifecycle.indexOf("###", phaseIndex + 1);
+    assert.ok(phaseIndex >= 0, `${phase} is missing`);
+    assert.ok(
+      skillIndex > phaseIndex &&
+        (nextPhaseIndex < 0 || skillIndex < nextPhaseIndex),
+      `${skill} must appear under ${phase}`,
+    );
   }
 
   let previousPhaseIndex = -1;
