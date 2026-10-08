@@ -125,4 +125,7 @@ test("agent guidance exposes the complete issue delivery lifecycle", async () =>
   }
 
   assert.match(lifecycle, /do not create a duplicate issue/i);
+  assert.match(lifecycle, /Rewrite the \*\*same\*\* GitHub issue body/i);
+  assert.match(issueTracker, /rewrite that same issue body/i);
+  assert.doesNotMatch(issueTracker, /--parent|--blocked-by/);
 });

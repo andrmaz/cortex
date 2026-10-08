@@ -26,9 +26,9 @@ Use `/to-spec` as the analysis standard. Treat an actionable existing issue as t
 
 ### Design
 
-Use `/to-tickets` when the change spans multiple context windows. Prefer the existing issue as a single ticket when it already fits one session. When decomposing, publish child tickets on the configured tracker and leave the parent open and unchanged. Draft tickets with the project's domain vocabulary, respect ADRs, and prefer existing seams over new ones.
+Use `/to-tickets` to turn the analysis into a detailed, structured ticket plan: tracer-bullet slices, blocking edges, ownership, and test seams, using the project's domain vocabulary and ADRs. Rewrite the **same** GitHub issue body with that structure; do not create child issues or a second tracker. When the work already fits one session, enrich the existing issue in place rather than inventing extra tickets.
 
-**Gate:** work is sequenced as one or more tracer-bullet tickets with clear blocking edges, ownership, and test seams, or the existing issue is confirmed as a single deliverable ticket.
+**Gate:** the existing issue body carries a clear, agent-ready ticket structure (what to build, acceptance criteria, and blocking order when multiple slices apply).
 
 ### Coding
 
