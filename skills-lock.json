@@ -91,6 +91,12 @@
       "skillPath": "skills/engineering/to-tickets/SKILL.md",
       "computedHash": "5f871bdc46a9212222214ba399be4965374208af1bd7f48f1271bef72841dd31"
     },
+    "triage": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/triage/SKILL.md",
+      "computedHash": "a683e69163e23630f39c05a50fb9d83a3795a6a6fbd317357669e082cd43a158"
+    },
     "turborepo": {
       "source": "vercel/turborepo",
       "sourceType": "github",

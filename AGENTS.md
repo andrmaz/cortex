@@ -28,11 +28,11 @@ Cortex is a TypeScript monorepo for an MCP-first context, policy, and audit plat
 
 ### Issue delivery
 
-Use the `issue-sdlc` skill when asked to take an existing GitHub issue through implementation and pull request delivery.
+Use the `issue-sdlc` skill when asked to take an existing GitHub issue through implementation and pull request delivery. Issues labeled `ready-for-agent` skip Planning through Design; see [`docs/agents/sdlc.md`](docs/agents/sdlc.md).
 
 ### Issue tracker
 
-Issues and specifications live in GitHub Issues. See [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
+Issues and specifications live in GitHub Issues. See [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md). Triage state labels and `/triage` readiness live in [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md).
 
 ### Domain docs
 

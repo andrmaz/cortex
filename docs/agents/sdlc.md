@@ -2,33 +2,42 @@
 
 Use this lifecycle when a user asks an agent to take an existing issue through implementation and pull request delivery. The issue is the durable specification; do not create a duplicate issue.
 
-Phases follow the classic [SDLC](https://www.ibm.com/think/topics/sdlc) shape, wired to this repository's agent skills.
+Phases follow the classic [SDLC](https://www.ibm.com/think/topics/sdlc) shape, wired to this repository's agent skills. Where this file or [`issue-tracker.md`](./issue-tracker.md) conflicts with an upstream skill's publish or interaction steps, **this repository's docs win**.
 
 ## Entry
 
 1. Fetch the complete issue, comments, and labels using [`issue-tracker.md`](./issue-tracker.md).
 2. Read the closest `AGENTS.md`, the relevant domain docs, and the code around the requested behavior.
-3. Confirm that the issue is actionable from repository evidence. Ask the user only when a missing product decision would materially change the result.
+3. Resolve readiness using [`triage-labels.md`](./triage-labels.md) and the `/triage` skill:
+
+| Issue state | Entry |
+| --- | --- |
+| Has `ready-for-agent` | Skip Planning, Analysis, and Design. Start at Coding. |
+| Has `needs-info`, `ready-for-human`, or `wontfix` | Stop. Report the blocking triage state; do not implement. |
+| Unlabeled or `needs-triage` | Apply `/triage` (read the skill and act). Continue only after the issue is `ready-for-agent`. When the user already handed the issue for end-to-end delivery, treat that as maintainer direction to triage toward `ready-for-agent` if the work is implementable; stop if triage concludes otherwise. |
+| No issue yet | Run Planning → Analysis → Design to publish one, then continue from Coding once it is `ready-for-agent`. |
+
+4. Ask the user only when a missing product decision would materially change the result.
 
 ## Phases and gates
 
 ### Planning
 
-Use `/grill-with-docs` to sharpen the plan and capture durable domain language or architecture decisions when they emerge. For an actionable existing issue, only grill material open questions that would change the result.
+Use `/grill-with-docs` to sharpen the plan and capture durable domain language or architecture decisions when they emerge. Skip this phase when Entry already found `ready-for-agent`.
 
 **Gate:** material ambiguities are resolved, and remaining assumptions are explicit.
 
 ### Analysis
 
-Use `/to-spec` as the analysis standard. Treat an actionable existing issue as the specification instead of publishing a duplicate; when work starts from a conversation without an issue, use the skill to publish one.
+Use `/to-spec` as the analysis standard. Treat an actionable existing issue as the specification instead of publishing a duplicate; when work starts from a conversation without an issue, use the skill to publish one. Skip this phase when Entry already found `ready-for-agent`.
 
 **Gate:** the problem, acceptance criteria, scope, and verification surface are explicit.
 
 ### Design
 
-Use `/to-tickets` to turn the analysis into a detailed, structured ticket plan: tracer-bullet slices, blocking edges, ownership, and test seams, using the project's domain vocabulary and ADRs. Rewrite the **same** GitHub issue body with that structure; do not create child issues or a second tracker. When the work already fits one session, enrich the existing issue in place rather than inventing extra tickets.
+Use `/to-tickets` to turn the analysis into a detailed, structured ticket plan: tracer-bullet slices, blocking edges, ownership, and test seams, using the project's domain vocabulary and ADRs. Rewrite the **same** GitHub issue body with that structure; do not create child issues or a second tracker. When the work already fits one session, enrich the existing issue in place rather than inventing extra tickets. Skip this phase when Entry already found `ready-for-agent`.
 
-**Gate:** the existing issue body carries a clear, agent-ready ticket structure (what to build, acceptance criteria, and blocking order when multiple slices apply).
+**Gate:** the existing issue body carries a clear, agent-ready ticket structure (what to build, acceptance criteria, and blocking order when multiple slices apply), and the issue is labeled `ready-for-agent`.
 
 ### Coding
 

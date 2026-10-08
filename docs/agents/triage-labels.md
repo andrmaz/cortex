@@ -1,6 +1,6 @@
 # Triage Labels
 
-These are the canonical GitHub label names for issue triage state:
+These are the canonical GitHub label names for issue triage state. They match the `/triage` skill roles one-to-one.
 
 - `needs-triage`: a maintainer needs to evaluate the issue.
 - `needs-info`: the issue is waiting for information from its reporter.
@@ -9,3 +9,5 @@ These are the canonical GitHub label names for issue triage state:
 - `wontfix`: the issue will not be actioned.
 
 Every triaged issue should have exactly one state label. Use the existing `bug` or `enhancement` label for its category.
+
+The SDLC entry gate treats `ready-for-agent` as the signal to skip Planning, Analysis, and Design. Detect it from the issue's labels via [`issue-tracker.md`](./issue-tracker.md); produce or change it by applying `/triage`.
