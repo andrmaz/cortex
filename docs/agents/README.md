@@ -13,6 +13,11 @@ docs/
     testing.md
     security.md
     git-workflow.md
+    sdlc.md
+    issue-tracker.md
+    triage-labels.md
+    domain.md
+    fallow.md
     api.md
     web.md
     db.md
@@ -27,6 +32,10 @@ docs/
 - Shared testing rules: [`testing.md`](./testing.md)
 - Shared security rules: [`security.md`](./security.md)
 - Commit and PR policy: [`git-workflow.md`](./git-workflow.md)
+- End-to-end issue delivery: [`sdlc.md`](./sdlc.md)
+- Issue tracker operations: [`issue-tracker.md`](./issue-tracker.md)
+- Triage label vocabulary: [`triage-labels.md`](./triage-labels.md)
+- Domain documentation conventions: [`domain.md`](./domain.md)
 - Fallow codebase intelligence: [`fallow.md`](./fallow.md)
 - API-specific guidance: [`api.md`](./api.md)
 - Web-specific guidance: [`web.md`](./web.md)

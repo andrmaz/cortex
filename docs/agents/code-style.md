@@ -13,7 +13,7 @@
 
 ## Naming and terminology
 
-- Follow domain terms from `UBIQUITOUS_LANGUAGE.md`.
+- Follow domain terms from `GLOSSARY.md`.
 - Prefer consistent product terms (`Organization`, `Policy`, `Context Bundle`, `Policy Decision`) in user-facing docs/spec text.
 
 ## Tooling consistency
