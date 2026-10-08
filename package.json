@@ -5,7 +5,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "test": "node --experimental-strip-types --test tests/agent-sdlc.test.mts && turbo run test",
+    "test": "node --test tests/agent-sdlc.test.mjs && turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types"
   },
