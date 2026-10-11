@@ -19,6 +19,8 @@ const requiredUpstreamSkills = [
   "writing-for-agents",
 ];
 
+const requiredLocalSkills = ["issue-sdlc", "qa"];
+
 const lifecycleCommands = [
   "/grill-with-docs",
   "/to-spec",
@@ -26,6 +28,7 @@ const lifecycleCommands = [
   "/implement",
   "/tdd",
   "/code-review",
+  "/qa",
   "/pr",
   "/retro",
   "/triage",
@@ -45,6 +48,8 @@ const phaseSkillOrder = [
   { phase: "### Planning", skill: "/grill-with-docs" },
   { phase: "### Analysis", skill: "/to-spec" },
   { phase: "### Design", skill: "/to-tickets" },
+  { phase: "### Coding", skill: "/code-review" },
+  { phase: "### Testing", skill: "/qa" },
 ];
 
 const readRepoFile = (path) =>
@@ -54,6 +59,11 @@ const assertSkillLocked = async (skillName, lock) => {
   const manifest = await readRepoFile(`.agents/skills/${skillName}/SKILL.md`);
   assert.match(manifest, new RegExp(`^name: ${skillName}$`, "m"));
   assert.equal(lock.skills[skillName]?.source, "mattpocock/skills");
+};
+
+const assertLocalSkill = async (skillName) => {
+  const manifest = await readRepoFile(`.agents/skills/${skillName}/SKILL.md`);
+  assert.match(manifest, new RegExp(`^name: ${skillName}$`, "m"));
 };
 
 const assertPhaseOwnsSkill = (lifecycle, phase, skill) => {
@@ -82,9 +92,12 @@ const assertPhasesOrdered = (lifecycle) => {
 
 test("required SDLC skills are installed and locked", async () => {
   const lock = JSON.parse(await readRepoFile("skills-lock.json"));
-  await Promise.all(
-    requiredUpstreamSkills.map((skillName) => assertSkillLocked(skillName, lock)),
-  );
+  await Promise.all([
+    ...requiredUpstreamSkills.map((skillName) =>
+      assertSkillLocked(skillName, lock),
+    ),
+    ...requiredLocalSkills.map((skillName) => assertLocalSkill(skillName)),
+  ]);
 });
 
 test("issue-sdlc orchestrates autonomous issue delivery", async () => {
@@ -98,6 +111,7 @@ test("issue-sdlc orchestrates autonomous issue delivery", async () => {
   assert.match(orchestrator, /do not create a duplicate issue/i);
   assert.match(orchestrator, /ready-for-agent/);
   assert.match(orchestrator, /\/triage/);
+  assert.match(orchestrator, /\/qa/);
   assert.match(agentGuidance, /issue-sdlc/);
 });
 
@@ -137,7 +151,7 @@ test("sdlc.md lists every lifecycle command", async () => {
   }
 });
 
-test("sdlc.md maps planning analysis and design to the remapped skills", async () => {
+test("sdlc.md maps phases to the remapped skills", async () => {
   const lifecycle = await readRepoFile("docs/agents/sdlc.md");
   for (const { phase, skill } of phaseSkillOrder) {
     assertPhaseOwnsSkill(lifecycle, phase, skill);
@@ -151,4 +165,13 @@ test("sdlc.md keeps phases ordered and gates ready-for-agent entry", async () =>
   assert.match(lifecycle, /Rewrite the \*\*same\*\* GitHub issue body/i);
   assert.match(lifecycle, /Has `ready-for-agent`/);
   assert.match(lifecycle, /Skip Planning, Analysis, and Design/);
+  assert.match(lifecycle, /Chrome DevTools MCP/);
+});
+
+test("qa skill defines a Chrome DevTools walkthrough", async () => {
+  const qa = await readRepoFile(".agents/skills/qa/SKILL.md");
+  assert.match(qa, /^name: qa$/m);
+  assert.match(qa, /Chrome DevTools/i);
+  assert.match(qa, /acceptance criterion/i);
+  assert.match(qa, /## QA walkthrough/);
 });

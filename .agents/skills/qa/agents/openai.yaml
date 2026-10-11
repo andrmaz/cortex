@@ -1,0 +1,5 @@
+interface:
+  display_name: "QA"
+  short_description: "Chrome DevTools MCP acceptance walkthrough"
+policy:
+  allow_implicit_invocation: false

@@ -41,15 +41,15 @@ Use `/to-tickets` to turn the analysis into a detailed, structured ticket plan: 
 
 ### Coding
 
-Use `/implement` to execute the issue or the next ready ticket. Use `/tdd` at the chosen seams where a failing test can demonstrate the missing behavior. Keep unrelated changes out of the diff.
+Use `/implement` to execute the issue or the next ready ticket. Use `/tdd` at the chosen seams where a failing test can demonstrate the missing behavior. Apply `/code-review` against the complete working tree and the branch's merge base, including staged and untracked files, using the issue as the specification, and resolve material findings before leaving this phase. Keep unrelated changes out of the diff.
 
-**Gate:** every in-scope requirement is implemented and focused tests pass.
+**Gate:** every in-scope requirement is implemented, focused tests pass, and material review findings are resolved.
 
 ### Testing
 
-Apply `/code-review` against the complete working tree and the branch's merge base, including staged and untracked files, using the issue as the specification. Resolve material findings, then run the repository checks described in [`testing.md`](./testing.md) and [`commands.md`](./commands.md).
+Apply `/qa` for a QA walkthrough against the issue's acceptance criteria using Chrome DevTools MCP (browser automation and CDP). Derive steps from the issue, capture evidence per criterion, and run the applicable repository checks described in [`testing.md`](./testing.md) and [`commands.md`](./commands.md). When the change has no user-visible runtime surface, use `/qa` Artifact mode and still record criterion-by-criterion evidence.
 
-**Gate:** relevant tests, type checks, lint, and formatting pass; any unavailable check has a concrete reason and manual evidence.
+**Gate:** every in-scope acceptance criterion passes the walkthrough with evidence, and required repo checks succeed (or have a concrete unavailable reason with manual evidence).
 
 ### Deployment
 

@@ -10,8 +10,7 @@ Follow [`docs/agents/sdlc.md`](../../../docs/agents/sdlc.md) to its terminal gat
 1. Read each referenced phase skill before entering that phase and apply it directly. Repository docs override upstream skill publish and interaction steps.
 2. Keep an existing issue as the single specification; do not create a duplicate issue. Design rewrites that same issue body via `/to-tickets`.
 3. At Entry, detect `ready-for-agent` from issue labels. If present, skip Planning, Analysis, and Design and start at Coding. Otherwise apply `/triage` before Coding; stop on `needs-info`, `ready-for-human`, or `wontfix`.
-4. Sequence the remaining phases through maintenance without waiting for a separate user invocation of each phase skill.
-5. Review the complete working tree against its merge base, including staged and untracked files, before committing.
-6. Resolve material review findings, rerun verification, then open the pull request when external writes are authorized.
+4. Sequence the remaining phases through maintenance without waiting for a separate user invocation of each phase skill. Coding includes `/tdd` and `/code-review`; Testing is `/qa` (Chrome DevTools MCP walkthrough).
+5. Resolve material Coding review findings, complete the `/qa` walkthrough gate, then open the pull request when external writes are authorized.
 
 Stop only at a lifecycle gate or a definitive external blocker. End with the completion report required by the lifecycle.
