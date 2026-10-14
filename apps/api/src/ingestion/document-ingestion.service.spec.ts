@@ -1,5 +1,5 @@
 import { fromPartial } from "@total-typescript/shoehorn";
-import type { Document } from "db/client";
+import type { Document } from "db";
 import { PrismaService } from "../prisma/prisma.service";
 import { DocumentIngestionService } from "./document-ingestion.service";
 import {

@@ -1,5 +1,5 @@
 /** Soft upper bound for a single Chunk's text content (characters). */
-export const DEFAULT_CHUNK_SIZE = 1_000;
+const DEFAULT_CHUNK_SIZE = 1_000;
 
 /**
  * Normalize raw Document content and split it into retrievable Chunk texts.

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 /** OpenAI text-embedding-3-small default width; used for pgvector column size. */
-export const EMBEDDING_DIMENSIONS = 1_536;
+const EMBEDDING_DIMENSIONS = 1_536;
 
 export const EMBEDDING_PROVIDER = Symbol("EMBEDDING_PROVIDER");
 
@@ -31,7 +31,7 @@ export class DeterministicEmbeddingProvider implements EmbeddingProvider {
 /**
  * OpenAI embeddings via the HTTP API. Requires `OPENAI_API_KEY`.
  */
-export class OpenAIEmbeddingProvider implements EmbeddingProvider {
+class OpenAIEmbeddingProvider implements EmbeddingProvider {
   constructor(
     private readonly apiKey: string,
     private readonly model: string = "text-embedding-3-small",

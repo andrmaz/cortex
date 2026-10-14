@@ -11,7 +11,12 @@
     "CORTEX_WEB_URL",
     "CORTEX_ADMIN_TOKEN",
     "REDIS_URL",
-    "NODE_ENV"
+    "NODE_ENV",
+    "JEST_WORKER_ID",
+    "INGESTION_WORKER_ENABLED",
+    "EMBEDDING_PROVIDER",
+    "OPENAI_API_KEY",
+    "OPENAI_EMBEDDING_MODEL"
   ],
   "tasks": {
     "build": {
