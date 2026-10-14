@@ -101,6 +101,8 @@ describe("SourceService", () => {
         sourceId: source.id,
         organizationId: "org-1",
         content: "Hello Cortex",
+        ingestionStatus: "pending",
+        ingestionError: null,
         metadata: {
           fileName: "handbook.txt",
           mimeType: "text/plain",
@@ -199,6 +201,8 @@ describe("SourceService", () => {
         sourceId: source.id,
         organizationId: "org-1",
         content: "Hello Cortex",
+        ingestionStatus: "pending",
+        ingestionError: null,
         idempotencyKey: "key-1",
         metadata: {
           fileName: "handbook.txt",

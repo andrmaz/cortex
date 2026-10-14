@@ -1,8 +1,14 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "db/client";
-import { createOrgScopedClient } from "db";
+import { createOrgScopedClient, runWithoutOrgScope } from "db";
 import invariant from "invariant";
+
+export interface ChunkEmbeddingWrite {
+  readonly chunkId: string;
+  readonly organizationId: string;
+  readonly embedding: readonly number[];
+}
 
 function createRawPrismaClient(): PrismaClient {
   const connectionString = process.env["DATABASE_URL"];
@@ -81,5 +87,40 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
   get $transaction(): PrismaClient["$transaction"] {
     return this.scoped.$transaction.bind(this.scoped);
+  }
+
+  /**
+   * Persist pgvector embeddings for Chunks.
+   *
+   * Prisma cannot write `Unsupported("vector")` through model delegates, so
+   * this system path uses raw SQL inside `runWithoutOrgScope` and still
+   * constrains every update by `organization_id`.
+   */
+  async writeChunkEmbeddings(
+    rows: readonly ChunkEmbeddingWrite[],
+  ): Promise<void> {
+    if (rows.length === 0) {
+      return;
+    }
+
+    await runWithoutOrgScope(async () => {
+      for (const row of rows) {
+        invariant(
+          row.embedding.length > 0,
+          "chunk embedding must be a non-empty vector",
+        );
+        const vectorLiteral = `[${row.embedding.join(",")}]`;
+        const updated = await this.scoped.$executeRaw`
+          UPDATE "chunks"
+          SET "embedding" = ${vectorLiteral}::vector
+          WHERE "id" = ${row.chunkId}
+            AND "organization_id" = ${row.organizationId}
+        `;
+        invariant(
+          Number(updated) === 1,
+          `failed to write embedding for chunk ${row.chunkId}`,
+        );
+      }
+    });
   }
 }

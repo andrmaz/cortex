@@ -253,7 +253,7 @@ describe("computeScopedArgs — direct scope (User, Department, ...)", () => {
   });
 });
 
-describe("computeScopedArgs — relation scope (UserDepartment, Document, Chunk, QueryLog)", () => {
+describe("computeScopedArgs — relation scope (UserDepartment, QueryLog)", () => {
   it("merges a single-hop relation filter for UserDepartment reads", () => {
     const result = computeScopedArgs(
       {
@@ -265,16 +265,6 @@ describe("computeScopedArgs — relation scope (UserDepartment, Document, Chunk,
     );
     expect(result["where"]).toEqual({
       AND: [{ userId: "u1" }, { user: { organizationId: ORG_ID } }],
-    });
-  });
-
-  it("merges a multi-hop relation filter for Chunk reads", () => {
-    const result = computeScopedArgs(
-      { model: "Chunk", operation: "findMany", args: {} },
-      ORG_ID,
-    );
-    expect(result["where"]).toEqual({
-      document: { source: { organizationId: ORG_ID } },
     });
   });
 
@@ -310,6 +300,38 @@ describe("computeScopedArgs — relation scope (UserDepartment, Document, Chunk,
       ORG_ID,
     );
     expect(result).toEqual(args);
+  });
+});
+
+describe("computeScopedArgs — direct scope (Document, Chunk)", () => {
+  it("forces organizationId on Chunk create", () => {
+    const result = computeScopedArgs(
+      {
+        model: "Chunk",
+        operation: "create",
+        args: {
+          data: {
+            documentId: "doc-1",
+            content: "hello",
+            organizationId: "attacker-org",
+          },
+        },
+      },
+      ORG_ID,
+    );
+    expect(result["data"]).toEqual({
+      documentId: "doc-1",
+      content: "hello",
+      organizationId: ORG_ID,
+    });
+  });
+
+  it("merges organizationId into Document findMany", () => {
+    const result = computeScopedArgs(
+      { model: "Document", operation: "findMany", args: {} },
+      ORG_ID,
+    );
+    expect(result["where"]).toEqual({ organizationId: ORG_ID });
   });
 
   it("throws on an unrecognized operation", () => {

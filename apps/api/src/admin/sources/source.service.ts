@@ -108,6 +108,8 @@ export class SourceService {
           sourceId,
           organizationId,
           content,
+          ingestionStatus: "pending",
+          ingestionError: null,
           metadata: {
             fileName: file.originalname,
             mimeType: file.mimetype,

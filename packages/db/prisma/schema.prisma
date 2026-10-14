@@ -26,6 +26,7 @@ model Organization {
   departments Department[]
   sources     Source[]
   documents   Document[]
+  chunks      Chunk[]
   policies    Policy[]
 
   @@map("organizations")
@@ -124,6 +125,9 @@ model Document {
   /// Stable upload retry key. Null uploads are not deduplicated.
   idempotencyKey String?  @map("idempotency_key")
   content        String
+  /// pending | processing | completed | failed
+  ingestionStatus String  @default("pending") @map("ingestion_status")
+  ingestionError  String? @map("ingestion_error")
   metadata       Json     @default("{}")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -136,22 +140,27 @@ model Document {
   @@unique([organizationId, sourceId, idempotencyKey])
   @@index([sourceId])
   @@index([organizationId])
+  @@index([ingestionStatus])
   @@map("documents")
 }
 
 /// A retrievable segment of a Document used in similarity search.
 model Chunk {
-  id         String   @id @default(uuid())
-  documentId String   @map("document_id")
-  content    String
-  embedding  Bytes?
-  metadata   Json     @default("{}")
-  createdAt  DateTime @default(now())
+  id             String                       @id @default(uuid())
+  documentId     String                       @map("document_id")
+  organizationId String                       @map("organization_id")
+  content        String
+  /// pgvector embedding; written via raw SQL (Unsupported in Prisma Client).
+  embedding      Unsupported("vector")?
+  metadata       Json                         @default("{}")
+  createdAt      DateTime                     @default(now())
 
   // Relations
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document     Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
+  @@index([organizationId])
   @@map("chunks")
 }
 

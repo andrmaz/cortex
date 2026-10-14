@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../prisma/prisma.module";
+import { IngestionModule } from "../ingestion/ingestion.module";
 import { OrganizationsController } from "./organizations/organizations.controller";
 import { OrganizationService } from "./organizations/organization.service";
 import { DepartmentsController } from "./departments/departments.controller";
@@ -10,10 +11,9 @@ import { UserDepartmentsController } from "./user-departments/user-departments.c
 import { UserDepartmentService } from "./user-departments/user-department.service";
 import { SourcesController } from "./sources/sources.controller";
 import { SourceService } from "./sources/source.service";
-import { IngestionQueueService } from "../ingestion/ingestion-queue.service";
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, IngestionModule],
   controllers: [
     OrganizationsController,
     DepartmentsController,
@@ -27,7 +27,6 @@ import { IngestionQueueService } from "../ingestion/ingestion-queue.service";
     AdminUserService,
     UserDepartmentService,
     SourceService,
-    IngestionQueueService,
   ],
 })
 export class AdminModule {}

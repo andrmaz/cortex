@@ -15,7 +15,7 @@ export type OrgScopeConfig =
    * The model is scoped transitively through a relation. `chain` is the
    * sequence of relation field names ending in the scalar `organizationId`
    * field on the final related model, e.g. `["document", "source",
-   * "organizationId"]` for `Chunk`.
+   * "organizationId"]` for relation-scoped models.
    */
   | {
       readonly kind: "relation";
@@ -54,16 +54,8 @@ export const ORG_SCOPE_CONFIG: Readonly<Record<string, OrgScopeConfig>> = {
       { foreignKeyField: "departmentId", parentModel: "Department" },
     ],
   },
-  Document: {
-    kind: "relation",
-    chain: ["source", "organizationId"],
-    verifyVia: [{ foreignKeyField: "sourceId", parentModel: "Source" }],
-  },
-  Chunk: {
-    kind: "relation",
-    chain: ["document", "source", "organizationId"],
-    verifyVia: [{ foreignKeyField: "documentId", parentModel: "Document" }],
-  },
+  Document: { kind: "direct", field: "organizationId" },
+  Chunk: { kind: "direct", field: "organizationId" },
   QueryLog: {
     kind: "relation",
     chain: ["user", "organizationId"],
