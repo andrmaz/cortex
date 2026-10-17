@@ -113,6 +113,7 @@ model Source {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   documents    Document[]
 
+  @@unique([id, organizationId])
   @@index([organizationId])
   @@map("sources")
 }
@@ -133,10 +134,11 @@ model Document {
   updatedAt      DateTime @updatedAt
 
   // Relations
-  source       Source       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  source       Source       @relation(fields: [sourceId, organizationId], references: [id, organizationId], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   chunks       Chunk[]
 
+  @@unique([id, organizationId])
   @@unique([organizationId, sourceId, idempotencyKey])
   @@index([sourceId])
   @@index([organizationId])
@@ -151,12 +153,12 @@ model Chunk {
   organizationId String                       @map("organization_id")
   content        String
   /// pgvector embedding; written via raw SQL (Unsupported in Prisma Client).
-  embedding      Unsupported("vector")?
+  embedding      Unsupported("vector(1536)")?
   metadata       Json                         @default("{}")
   createdAt      DateTime                     @default(now())
 
   // Relations
-  document     Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document     Document     @relation(fields: [documentId, organizationId], references: [id, organizationId], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([documentId])

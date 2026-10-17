@@ -38,49 +38,48 @@ export class DocumentIngestionService {
         }
 
         const texts = chunkDocumentContent(document.content);
-        await this.prisma.chunk.deleteMany({
-          where: { documentId: job.documentId },
-        });
-
-        if (texts.length === 0) {
-          await this.markStatus(job.documentId, "completed", null);
-          return;
-        }
-
-        await this.prisma.chunk.createMany({
-          data: texts.map((content, index) => ({
-            documentId: job.documentId,
-            organizationId: job.organizationId,
-            content,
-            metadata: { index },
-          })),
-        });
-
-        const created = await this.prisma.chunk.findMany({
-          where: { documentId: job.documentId },
-          select: { id: true, content: true, organizationId: true, metadata: true },
-        });
-        const chunks = [...created].sort(
-          (left, right) =>
-            chunkIndex(left.metadata) - chunkIndex(right.metadata),
-        );
-
-        const vectors = await this.embeddings.embedMany(
-          chunks.map((chunk) => chunk.content),
-        );
-        if (vectors.length !== chunks.length) {
+        // Embed before any write so a provider failure keeps prior chunks.
+        const vectors =
+          texts.length === 0 ? [] : await this.embeddings.embedMany(texts);
+        if (vectors.length !== texts.length) {
           throw new EmbeddingProviderError(
-            `Embedding provider returned ${vectors.length} vectors for ${chunks.length} chunks`,
+            `Embedding provider returned ${vectors.length} vectors for ${texts.length} chunks`,
           );
         }
 
-        await this.prisma.writeChunkEmbeddings(
-          chunks.map((chunk, index) => ({
-            chunkId: chunk.id,
-            organizationId: chunk.organizationId,
-            embedding: vectors[index] ?? [],
-          })),
-        );
+        await this.prisma.$transaction(async (tx) => {
+          await tx.chunk.deleteMany({ where: { documentId: job.documentId } });
+          if (texts.length === 0) {
+            return;
+          }
+
+          await tx.chunk.createMany({
+            data: texts.map((content, index) => ({
+              documentId: job.documentId,
+              organizationId: job.organizationId,
+              content,
+              metadata: { index },
+            })),
+          });
+
+          const created = await tx.chunk.findMany({
+            where: { documentId: job.documentId },
+            select: { id: true, organizationId: true, metadata: true },
+          });
+          const chunks = [...created].sort(
+            (left, right) =>
+              chunkIndex(left.metadata) - chunkIndex(right.metadata),
+          );
+
+          await this.prisma.writeChunkEmbeddings(
+            chunks.map((chunk, index) => ({
+              chunkId: chunk.id,
+              organizationId: chunk.organizationId,
+              embedding: vectors[index] ?? [],
+            })),
+            tx,
+          );
+        });
 
         await this.markStatus(job.documentId, "completed", null);
       } catch (error) {

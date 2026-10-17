@@ -93,7 +93,11 @@ describe("Ingestion happy path (upload → job → indexed chunks)", () => {
       writeChunkEmbeddings: jest.fn().mockImplementation(async (rows) => {
         embeddingsWritten = rows;
       }),
+      $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+      fn(prisma),
+    );
 
     const queue = {
       enqueueDocument: jest.fn().mockResolvedValue("document-1"),
@@ -163,8 +167,7 @@ describe("Ingestion happy path (upload → job → indexed chunks)", () => {
       }),
     ]);
     expect(
-      (embeddingsWritten as Array<{ embedding: number[] }>)[0]?.embedding
-        .length,
-    ).toBeGreaterThan(0);
+      (embeddingsWritten as Array<{ embedding: number[] }>)[0]?.embedding,
+    ).toHaveLength(1536);
   });
 });

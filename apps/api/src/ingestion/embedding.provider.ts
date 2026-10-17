@@ -3,6 +3,25 @@ import { createHash } from "node:crypto";
 /** OpenAI text-embedding-3-small default width; used for pgvector column size. */
 const EMBEDDING_DIMENSIONS = 1_536;
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
+/** Extracts only a short machine-readable code; never the raw body, which may echo document content. */
+async function readProviderErrorCode(
+  response: Response,
+): Promise<string | undefined> {
+  try {
+    const payload = (await response.json()) as {
+      error?: { code?: unknown; type?: unknown };
+    };
+    const code = payload.error?.code ?? payload.error?.type;
+    return typeof code === "string" && /^[\w.-]{1,64}$/.test(code)
+      ? code
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export const EMBEDDING_PROVIDER = Symbol("EMBEDDING_PROVIDER");
 
 export interface EmbeddingProvider {
@@ -55,18 +74,19 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
           model: this.model,
           input: texts,
         }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
     } catch (error) {
       throw new EmbeddingProviderError(
-        `Embedding request failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Embedding request failed: ${error instanceof Error ? error.name : "unknown error"}`,
         { cause: error },
       );
     }
 
     if (!response.ok) {
-      const body = await response.text();
+      const code = await readProviderErrorCode(response);
       throw new EmbeddingProviderError(
-        `Embedding provider error ${response.status}: ${body.slice(0, 500)}`,
+        `Embedding provider error ${response.status}${code ? ` (${code})` : ""}`,
       );
     }
 

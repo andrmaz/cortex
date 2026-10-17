@@ -27,7 +27,7 @@ const document = fromPartial<Document>({
 });
 
 function createPrisma() {
-  return {
+  const prisma = {
     document: {
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -38,7 +38,12 @@ function createPrisma() {
       findMany: jest.fn(),
     },
     writeChunkEmbeddings: jest.fn(),
+    $transaction: jest.fn(),
   };
+  prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+    fn(prisma),
+  );
+  return prisma;
 }
 
 describe("DocumentIngestionService", () => {
@@ -110,7 +115,7 @@ describe("DocumentIngestionService", () => {
         organizationId: "org-1",
         embedding: expect.any(Array),
       },
-    ]);
+    ], prisma);
     expect(prisma.document.update).toHaveBeenLastCalledWith({
       where: { id: job.documentId },
       data: { ingestionStatus: "completed", ingestionError: null },
@@ -148,5 +153,29 @@ describe("DocumentIngestionService", () => {
       },
     });
     expect(prisma.writeChunkEmbeddings).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.chunk.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("deletes old chunks and completes when content is empty", async () => {
+    const prisma = createPrisma();
+    prisma.document.findUnique.mockResolvedValue({ ...document, content: "" });
+    prisma.document.update.mockResolvedValue(document);
+    prisma.chunk.deleteMany.mockResolvedValue({ count: 3 });
+    const embeddingProvider: EmbeddingProvider = { embedMany: jest.fn() };
+
+    const service = new DocumentIngestionService(
+      prisma as unknown as PrismaService,
+      embeddingProvider,
+    );
+    await service.process(job);
+
+    expect(embeddingProvider.embedMany).not.toHaveBeenCalled();
+    expect(prisma.chunk.deleteMany).toHaveBeenCalled();
+    expect(prisma.chunk.createMany).not.toHaveBeenCalled();
+    expect(prisma.document.update).toHaveBeenLastCalledWith({
+      where: { id: job.documentId },
+      data: { ingestionStatus: "completed", ingestionError: null },
+    });
   });
 });

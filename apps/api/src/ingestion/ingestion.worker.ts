@@ -49,6 +49,10 @@ export class IngestionWorker implements OnModuleInit, OnModuleDestroy {
       },
     );
 
+    this.worker.on("error", (error) => {
+      this.logger.error(`Ingestion worker error: ${error.message}`);
+    });
+
     this.worker.on("failed", (job, error) => {
       this.logger.error(
         `Ingestion job ${job?.id ?? "unknown"} failed: ${error.message}`,

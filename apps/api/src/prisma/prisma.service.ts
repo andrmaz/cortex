@@ -98,11 +98,13 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
    */
   async writeChunkEmbeddings(
     rows: readonly ChunkEmbeddingWrite[],
+    tx?: Pick<PrismaClient, "$executeRaw">,
   ): Promise<void> {
     if (rows.length === 0) {
       return;
     }
 
+    const client = tx ?? this.scoped;
     await runWithoutOrgScope(async () => {
       for (const row of rows) {
         invariant(
@@ -110,7 +112,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
           "chunk embedding must be a non-empty vector",
         );
         const vectorLiteral = `[${row.embedding.join(",")}]`;
-        const updated = await this.scoped.$executeRaw`
+        const updated = await client.$executeRaw`
           UPDATE "chunks"
           SET "embedding" = ${vectorLiteral}::vector
           WHERE "id" = ${row.chunkId}
