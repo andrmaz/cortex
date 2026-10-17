@@ -181,7 +181,6 @@ describe("DocumentIngestionService", () => {
       data: { ingestionStatus: "completed", ingestionError: null },
     });
   });
-}));
 
   it("fails with an actionable error when the chunk count exceeds the limit", async () => {
     const prisma = createPrisma();
