@@ -119,4 +119,20 @@ export class PrismaClient {
   userDepartment = mockPrismaClient.userDepartment;
 }
 
-export const Prisma = {};
+/** Minimal tagged-template stand-ins for `Prisma.sql` / `Prisma.join`. */
+interface MockSql {
+  readonly strings: readonly string[];
+  readonly values: readonly unknown[];
+}
+
+export const Prisma = {
+  sql(strings: TemplateStringsArray, ...values: unknown[]): MockSql {
+    return { strings: [...strings], values };
+  },
+  join(values: readonly unknown[], separator = ","): MockSql {
+    return {
+      strings: ["", ...values.slice(1).map(() => separator), ""],
+      values: [...values],
+    };
+  },
+};
