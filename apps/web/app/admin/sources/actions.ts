@@ -4,12 +4,27 @@ import { revalidatePath } from "next/cache";
 import {
   createSource,
   documentUploadIdempotencyKey,
+  fetchSources,
   uploadSourceDocument,
 } from "./api";
+import type { Source } from "./types";
+import type { SourceStatusRefreshResult } from "./source-status-polling";
 
 export interface SourceActionState {
   error?: string;
   message?: string;
+}
+
+export async function fetchSourcesAction(): Promise<
+  SourceStatusRefreshResult<Source>
+> {
+  try {
+    return { sources: await fetchSources() };
+  } catch (cause) {
+    return {
+      error: cause instanceof Error ? cause.message : "Failed to load sources",
+    };
+  }
 }
 
 function getStringField(formData: FormData, key: string): string {

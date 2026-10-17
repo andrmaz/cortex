@@ -59,6 +59,7 @@ const prisma = {
 };
 const queue = {
   enqueueDocument: jest.fn(),
+  getActiveDocumentIds: jest.fn(),
 };
 
 function token(role = "admin", organizationId = "org-1"): string {
@@ -118,6 +119,136 @@ describe("Admin Sources Integration", () => {
       .set("Authorization", `Bearer ${token("member")}`)
       .send({ name: "Handbook", type: "upload" })
       .expect(403);
+  });
+
+  it("lists organization sources with aggregated ingestion status", async () => {
+    const sources = [
+      {
+        ...source,
+        documents: [
+          {
+            id: "active-document",
+            ingestionStatus: "pending",
+            ingestionError: null,
+            _count: { chunks: 1 },
+          },
+          {
+            id: "earlier-failure",
+            ingestionStatus: "failed",
+            ingestionError: "Earlier failure",
+            _count: { chunks: 4 },
+          },
+        ],
+      },
+      {
+        ...source,
+        id: "source-failed",
+        name: "Failed source",
+        documents: [
+          {
+            id: "failed-document",
+            ingestionStatus: "failed",
+            ingestionError:
+              "Embedding provider returned an invalid vector count",
+            _count: { chunks: 7 },
+          },
+          {
+            id: "still-pending-document",
+            ingestionStatus: "pending",
+            ingestionError: null,
+            _count: { chunks: 2 },
+          },
+        ],
+      },
+      {
+        ...source,
+        id: "source-completed",
+        name: "Completed source",
+        documents: [
+          {
+            id: "completed-document",
+            ingestionStatus: "completed",
+            ingestionError: null,
+            _count: { chunks: 3 },
+          },
+          {
+            id: "another-completed-document",
+            ingestionStatus: "completed",
+            ingestionError: null,
+            _count: { chunks: 2 },
+          },
+        ],
+      },
+      {
+        ...source,
+        id: "source-pending",
+        name: "Pending source",
+        documents: [
+          {
+            id: "pending-document",
+            ingestionStatus: "pending",
+            ingestionError: null,
+            _count: { chunks: 3 },
+          },
+          {
+            id: "stale-processing-document",
+            ingestionStatus: "processing",
+            ingestionError: null,
+            _count: { chunks: 5 },
+          },
+        ],
+      },
+    ];
+    prisma.source.findMany.mockResolvedValue(sources);
+    queue.getActiveDocumentIds.mockResolvedValue(new Set(["active-document"]));
+
+    const response = await request(app.getHttpServer())
+      .get("/api/admin/sources")
+      .set("Authorization", `Bearer ${token()}`)
+      .expect(200);
+
+    expect(response.body).toEqual([
+      expect.objectContaining({
+        id: source.id,
+        ingestionStatus: "running",
+        ingestionError: null,
+        completedChunkCount: 0,
+      }),
+      expect.objectContaining({
+        id: "source-failed",
+        ingestionStatus: "failed",
+        ingestionError: "Embedding provider returned an invalid vector count",
+        completedChunkCount: 0,
+      }),
+      expect.objectContaining({
+        id: "source-completed",
+        ingestionStatus: "completed",
+        ingestionError: null,
+        completedChunkCount: 5,
+      }),
+      expect.objectContaining({
+        id: "source-pending",
+        ingestionStatus: "pending",
+        ingestionError: null,
+        completedChunkCount: 0,
+      }),
+    ]);
+    expect(prisma.source.findMany).toHaveBeenCalledWith({
+      where: { organizationId: "org-1" },
+      orderBy: { createdAt: "desc" },
+      include: {
+        documents: {
+          where: { organizationId: "org-1" },
+          select: {
+            id: true,
+            ingestionStatus: true,
+            ingestionError: true,
+            _count: { select: { chunks: true } },
+          },
+        },
+      },
+    });
+    expect(queue.getActiveDocumentIds).toHaveBeenCalledTimes(1);
   });
 
   it("registers an organization-owned upload source", async () => {

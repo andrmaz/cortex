@@ -24,7 +24,11 @@ import {
   type SourceResponseDto,
   type SourceType,
 } from "./source.dto";
-import { SourceService, type UploadFile } from "./source.service";
+import {
+  SourceService,
+  type SourceListItem,
+  type UploadFile,
+} from "./source.service";
 
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
@@ -40,7 +44,20 @@ interface RequestWithUser {
   user: AuthenticatedUser;
 }
 
-function toSourceResponse(source: Source): SourceResponseDto {
+function toSourceResponse(source: Source | SourceListItem): SourceResponseDto {
+  const status =
+    "ingestionStatus" in source
+      ? {
+          ingestionStatus: source.ingestionStatus,
+          ingestionError: source.ingestionError,
+          completedChunkCount: source.completedChunkCount,
+        }
+      : {
+          ingestionStatus: "pending" as const,
+          ingestionError: null,
+          completedChunkCount: 0,
+        };
+
   return {
     id: source.id,
     name: source.name,
@@ -48,6 +65,7 @@ function toSourceResponse(source: Source): SourceResponseDto {
     organizationId: source.organizationId,
     createdAt: source.createdAt.toISOString(),
     updatedAt: source.updatedAt.toISOString(),
+    ...status,
   };
 }
 

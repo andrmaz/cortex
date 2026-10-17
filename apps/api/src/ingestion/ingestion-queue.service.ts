@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { Queue } from "bullmq";
 
 export const INGESTION_QUEUE_NAME = "document-ingestion";
@@ -16,6 +16,7 @@ export interface IngestDocumentJobData {
 
 @Injectable()
 export class IngestionQueueService implements OnModuleDestroy {
+  private readonly logger = new Logger(IngestionQueueService.name);
   private queue?: Queue<IngestDocumentJobData>;
 
   private getQueue(): Queue<IngestDocumentJobData> {
@@ -54,6 +55,22 @@ export class IngestionQueueService implements OnModuleDestroy {
         return existing;
       }
       throw error;
+    }
+  }
+
+  async getActiveDocumentIds(): Promise<Set<string> | null> {
+    try {
+      const jobs = await this.getQueue().getJobs(["active"], 0, -1);
+      return new Set(
+        jobs.flatMap((job) =>
+          job.name === INGEST_DOCUMENT_JOB_NAME && job.id ? [job.id] : [],
+        ),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Could not read active ingestion jobs from BullMQ: ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+      return null;
     }
   }
 

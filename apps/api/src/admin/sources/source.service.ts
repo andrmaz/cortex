@@ -22,6 +22,18 @@ export interface UploadFile {
   buffer: Buffer;
 }
 
+export type SourceIngestionStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed";
+
+export type SourceListItem = Source & {
+  ingestionStatus: SourceIngestionStatus;
+  ingestionError: string | null;
+  completedChunkCount: number;
+};
+
 @Injectable()
 export class SourceService {
   constructor(
@@ -29,10 +41,65 @@ export class SourceService {
     private readonly ingestionQueue: IngestionQueueService,
   ) {}
 
-  async findAll(organizationId: string): Promise<Source[]> {
-    return this.prisma.source.findMany({
-      where: { organizationId },
-      orderBy: { createdAt: "desc" },
+  async findAll(organizationId: string): Promise<SourceListItem[]> {
+    const [sources, activeDocumentIds] = await Promise.all([
+      this.prisma.source.findMany({
+        where: { organizationId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          documents: {
+            where: { organizationId },
+            select: {
+              id: true,
+              ingestionStatus: true,
+              ingestionError: true,
+              _count: { select: { chunks: true } },
+            },
+          },
+        },
+      }),
+      this.ingestionQueue.getActiveDocumentIds(),
+    ]);
+
+    return sources.map((source) => {
+      const documents = source.documents;
+      const isRunning = (document: (typeof documents)[number]) =>
+        activeDocumentIds
+          ? activeDocumentIds.has(document.id)
+          : document.ingestionStatus === "processing";
+      const hasRunningDocument = documents.some(isRunning);
+      const failedDocument = documents.find(
+        (document) => document.ingestionStatus === "failed",
+      );
+      const hasPendingDocument = documents.some(
+        (document) =>
+          document.ingestionStatus !== "completed" &&
+          document.ingestionStatus !== "failed" &&
+          !isRunning(document),
+      );
+      const ingestionStatus: SourceIngestionStatus = hasRunningDocument
+        ? "running"
+        : failedDocument
+          ? "failed"
+          : hasPendingDocument || documents.length === 0
+            ? "pending"
+            : "completed";
+
+      return {
+        ...source,
+        ingestionStatus,
+        ingestionError:
+          ingestionStatus === "failed"
+            ? (failedDocument?.ingestionError ?? null)
+            : null,
+        completedChunkCount: documents.reduce(
+          (count, document) =>
+            document.ingestionStatus === "completed"
+              ? count + document._count.chunks
+              : count,
+          0,
+        ),
+      };
     });
   }
 

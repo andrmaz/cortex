@@ -11,9 +11,10 @@ import {
 const add = jest.fn();
 const close = jest.fn();
 const getJob = jest.fn();
+const getJobs = jest.fn();
 
 jest.mock("bullmq", () => ({
-  Queue: jest.fn().mockImplementation(() => ({ add, close, getJob })),
+  Queue: jest.fn().mockImplementation(() => ({ add, close, getJob, getJobs })),
 }));
 
 const data: IngestDocumentJobData = {
@@ -84,6 +85,20 @@ describe("IngestionQueueService", () => {
     const service = new IngestionQueueService();
 
     await expect(service.enqueueDocument(data)).rejects.toBe(failure);
+  });
+
+  it("returns document ids for active ingestion jobs only", async () => {
+    getJobs.mockResolvedValue([
+      { id: "document-1", name: INGEST_DOCUMENT_JOB_NAME },
+      { id: "other-job", name: "unrelated-job" },
+      { id: undefined, name: INGEST_DOCUMENT_JOB_NAME },
+    ]);
+    const service = new IngestionQueueService();
+
+    await expect(service.getActiveDocumentIds()).resolves.toEqual(
+      new Set(["document-1"]),
+    );
+    expect(getJobs).toHaveBeenCalledWith(["active"], 0, -1);
   });
 
   it("closes the BullMQ queue during module shutdown", async () => {
