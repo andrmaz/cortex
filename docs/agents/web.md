@@ -4,6 +4,7 @@
 
 - Next.js Admin Web control plane for Cortex.
 - Core journeys: auth, organizations, users/departments, sources, policies, audit logs.
+- Current implementation map: [Cortex architecture diagrams](../architecture.md); consult it when changing routes, authentication, or API boundaries.
 
 ## Implementation rules
 
