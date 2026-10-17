@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { Queue } from "bullmq";
 
 export const INGESTION_QUEUE_NAME = "document-ingestion";
@@ -14,8 +14,14 @@ export interface IngestDocumentJobData {
   mimeType: string;
 }
 
+export interface DocumentJobStatus {
+  status: "running" | "pending" | "failed";
+  error: string | null;
+}
+
 @Injectable()
 export class IngestionQueueService implements OnModuleDestroy {
+  private readonly logger = new Logger(IngestionQueueService.name);
   private queue?: Queue<IngestDocumentJobData>;
 
   private getQueue(): Queue<IngestDocumentJobData> {
@@ -54,6 +60,48 @@ export class IngestionQueueService implements OnModuleDestroy {
         return existing;
       }
       throw error;
+    }
+  }
+
+  async getDocumentJobStatuses(): Promise<Map<
+    string,
+    DocumentJobStatus
+  > | null> {
+    try {
+      const states = ["active", "waiting", "delayed", "failed"] as const;
+      const jobsByState = await Promise.all(
+        states.map((state) => this.getQueue().getJobs([state], 0, -1)),
+      );
+      const statuses = new Map<string, DocumentJobStatus>();
+
+      jobsByState.forEach((jobs, index) => {
+        const state = states[index];
+        if (!state) {
+          return;
+        }
+
+        for (const job of jobs) {
+          if (job.name !== INGEST_DOCUMENT_JOB_NAME || !job.id) {
+            continue;
+          }
+          statuses.set(job.id, {
+            status:
+              state === "active"
+                ? "running"
+                : state === "failed"
+                  ? "failed"
+                  : "pending",
+            error: state === "failed" ? job.failedReason || null : null,
+          });
+        }
+      });
+
+      return statuses;
+    } catch (error) {
+      this.logger.warn(
+        `Could not read ingestion jobs from BullMQ: ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+      return null;
     }
   }
 
