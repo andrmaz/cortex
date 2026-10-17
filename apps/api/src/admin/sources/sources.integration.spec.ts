@@ -59,7 +59,7 @@ const prisma = {
 };
 const queue = {
   enqueueDocument: jest.fn(),
-  getActiveDocumentIds: jest.fn(),
+  getDocumentJobStatuses: jest.fn(),
 };
 
 function token(role = "admin", organizationId = "org-1"): string {
@@ -147,9 +147,8 @@ describe("Admin Sources Integration", () => {
         documents: [
           {
             id: "failed-document",
-            ingestionStatus: "failed",
-            ingestionError:
-              "Embedding provider returned an invalid vector count",
+            ingestionStatus: "pending",
+            ingestionError: null,
             _count: { chunks: 7 },
           },
           {
@@ -192,15 +191,27 @@ describe("Admin Sources Integration", () => {
           },
           {
             id: "stale-processing-document",
-            ingestionStatus: "processing",
-            ingestionError: null,
+            ingestionStatus: "failed",
+            ingestionError: "Temporary embedding failure",
             _count: { chunks: 5 },
           },
         ],
       },
     ];
     prisma.source.findMany.mockResolvedValue(sources);
-    queue.getActiveDocumentIds.mockResolvedValue(new Set(["active-document"]));
+    queue.getDocumentJobStatuses.mockResolvedValue(
+      new Map([
+        ["active-document", { status: "running", error: null }],
+        [
+          "failed-document",
+          {
+            status: "failed",
+            error: "Embedding provider returned an invalid vector count",
+          },
+        ],
+        ["stale-processing-document", { status: "pending", error: null }],
+      ]),
+    );
 
     const response = await request(app.getHttpServer())
       .get("/api/admin/sources")
@@ -248,7 +259,7 @@ describe("Admin Sources Integration", () => {
         },
       },
     });
-    expect(queue.getActiveDocumentIds).toHaveBeenCalledTimes(1);
+    expect(queue.getDocumentJobStatuses).toHaveBeenCalledTimes(1);
   });
 
   it("registers an organization-owned upload source", async () => {

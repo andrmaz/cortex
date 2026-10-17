@@ -14,6 +14,11 @@ export interface IngestDocumentJobData {
   mimeType: string;
 }
 
+export interface DocumentJobStatus {
+  status: "running" | "pending" | "failed";
+  error: string | null;
+}
+
 @Injectable()
 export class IngestionQueueService implements OnModuleDestroy {
   private readonly logger = new Logger(IngestionQueueService.name);
@@ -58,17 +63,43 @@ export class IngestionQueueService implements OnModuleDestroy {
     }
   }
 
-  async getActiveDocumentIds(): Promise<Set<string> | null> {
+  async getDocumentJobStatuses(): Promise<Map<
+    string,
+    DocumentJobStatus
+  > | null> {
     try {
-      const jobs = await this.getQueue().getJobs(["active"], 0, -1);
-      return new Set(
-        jobs.flatMap((job) =>
-          job.name === INGEST_DOCUMENT_JOB_NAME && job.id ? [job.id] : [],
-        ),
+      const states = ["active", "waiting", "delayed", "failed"] as const;
+      const jobsByState = await Promise.all(
+        states.map((state) => this.getQueue().getJobs([state], 0, -1)),
       );
+      const statuses = new Map<string, DocumentJobStatus>();
+
+      jobsByState.forEach((jobs, index) => {
+        const state = states[index];
+        if (!state) {
+          return;
+        }
+
+        for (const job of jobs) {
+          if (job.name !== INGEST_DOCUMENT_JOB_NAME || !job.id) {
+            continue;
+          }
+          statuses.set(job.id, {
+            status:
+              state === "active"
+                ? "running"
+                : state === "failed"
+                  ? "failed"
+                  : "pending",
+            error: state === "failed" ? job.failedReason || null : null,
+          });
+        }
+      });
+
+      return statuses;
     } catch (error) {
       this.logger.warn(
-        `Could not read active ingestion jobs from BullMQ: ${error instanceof Error ? error.message : "unknown error"}`,
+        `Could not read ingestion jobs from BullMQ: ${error instanceof Error ? error.message : "unknown error"}`,
       );
       return null;
     }

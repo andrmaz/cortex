@@ -87,18 +87,42 @@ describe("IngestionQueueService", () => {
     await expect(service.enqueueDocument(data)).rejects.toBe(failure);
   });
 
-  it("returns document ids for active ingestion jobs only", async () => {
-    getJobs.mockResolvedValue([
-      { id: "document-1", name: INGEST_DOCUMENT_JOB_NAME },
-      { id: "other-job", name: "unrelated-job" },
-      { id: undefined, name: INGEST_DOCUMENT_JOB_NAME },
-    ]);
+  it("returns ingestion document statuses across active, waiting, delayed, and failed jobs", async () => {
+    getJobs
+      .mockResolvedValueOnce([
+        { id: "active-document", name: INGEST_DOCUMENT_JOB_NAME },
+        { id: "other-job", name: "unrelated-job" },
+      ])
+      .mockResolvedValueOnce([
+        { id: "waiting-document", name: INGEST_DOCUMENT_JOB_NAME },
+      ])
+      .mockResolvedValueOnce([
+        { id: "delayed-document", name: INGEST_DOCUMENT_JOB_NAME },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "failed-document",
+          name: INGEST_DOCUMENT_JOB_NAME,
+          failedReason: "Embedding provider timed out",
+        },
+      ]);
     const service = new IngestionQueueService();
 
-    await expect(service.getActiveDocumentIds()).resolves.toEqual(
-      new Set(["document-1"]),
+    await expect(service.getDocumentJobStatuses()).resolves.toEqual(
+      new Map([
+        ["active-document", { status: "running", error: null }],
+        ["waiting-document", { status: "pending", error: null }],
+        ["delayed-document", { status: "pending", error: null }],
+        [
+          "failed-document",
+          { status: "failed", error: "Embedding provider timed out" },
+        ],
+      ]),
     );
-    expect(getJobs).toHaveBeenCalledWith(["active"], 0, -1);
+    expect(getJobs).toHaveBeenNthCalledWith(1, ["active"], 0, -1);
+    expect(getJobs).toHaveBeenNthCalledWith(2, ["waiting"], 0, -1);
+    expect(getJobs).toHaveBeenNthCalledWith(3, ["delayed"], 0, -1);
+    expect(getJobs).toHaveBeenNthCalledWith(4, ["failed"], 0, -1);
   });
 
   it("closes the BullMQ queue during module shutdown", async () => {

@@ -42,7 +42,7 @@ export class SourceService {
   ) {}
 
   async findAll(organizationId: string): Promise<SourceListItem[]> {
-    const [sources, activeDocumentIds] = await Promise.all([
+    const [sources, documentJobStatuses] = await Promise.all([
       this.prisma.source.findMany({
         where: { organizationId },
         orderBy: { createdAt: "desc" },
@@ -58,30 +58,42 @@ export class SourceService {
           },
         },
       }),
-      this.ingestionQueue.getActiveDocumentIds(),
+      this.ingestionQueue.getDocumentJobStatuses(),
     ]);
 
     return sources.map((source) => {
       const documents = source.documents;
-      const isRunning = (document: (typeof documents)[number]) =>
-        activeDocumentIds
-          ? activeDocumentIds.has(document.id)
-          : document.ingestionStatus === "processing";
-      const hasRunningDocument = documents.some(isRunning);
-      const failedDocument = documents.find(
-        (document) => document.ingestionStatus === "failed",
+      const documentStatuses = documents.map((document) => {
+        const jobStatus = documentJobStatuses?.get(document.id);
+        const status =
+          jobStatus?.status ??
+          (document.ingestionStatus === "processing"
+            ? "running"
+            : document.ingestionStatus);
+
+        return {
+          ...document,
+          status,
+          error:
+            jobStatus?.status === "failed"
+              ? (jobStatus.error ?? document.ingestionError)
+              : document.ingestionError,
+        };
+      });
+      const hasRunningDocument = documentStatuses.some(
+        (document) => document.status === "running",
       );
-      const hasPendingDocument = documents.some(
-        (document) =>
-          document.ingestionStatus !== "completed" &&
-          document.ingestionStatus !== "failed" &&
-          !isRunning(document),
+      const failedDocument = documentStatuses.find(
+        (document) => document.status === "failed",
+      );
+      const hasPendingDocument = documentStatuses.some(
+        (document) => document.status === "pending",
       );
       const ingestionStatus: SourceIngestionStatus = hasRunningDocument
         ? "running"
         : failedDocument
           ? "failed"
-          : hasPendingDocument || documents.length === 0
+          : hasPendingDocument || documentStatuses.length === 0
             ? "pending"
             : "completed";
 
@@ -89,9 +101,7 @@ export class SourceService {
         ...source,
         ingestionStatus,
         ingestionError:
-          ingestionStatus === "failed"
-            ? (failedDocument?.ingestionError ?? null)
-            : null,
+          ingestionStatus === "failed" ? (failedDocument?.error ?? null) : null,
         completedChunkCount: documents.reduce(
           (count, document) =>
             document.ingestionStatus === "completed"

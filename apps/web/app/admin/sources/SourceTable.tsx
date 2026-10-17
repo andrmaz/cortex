@@ -27,8 +27,19 @@ export function SourceTable({ sources }: { sources: Source[] }) {
     [],
   );
 
+  const refreshErrorAlert = refreshError ? (
+    <p role="alert" style={errorStyle}>
+      Status refresh failed: {refreshError}
+    </p>
+  ) : null;
+
   if (currentSources.length === 0) {
-    return <p style={{ color: "#6b7280" }}>No sources registered yet.</p>;
+    return (
+      <>
+        <p style={{ color: "#6b7280" }}>No sources registered yet.</p>
+        {refreshErrorAlert}
+      </>
+    );
   }
 
   return (
@@ -49,7 +60,9 @@ export function SourceTable({ sources }: { sources: Source[] }) {
               <td style={cellStyle}>{source.name}</td>
               <td style={cellStyle}>File upload</td>
               <td style={cellStyle}>
-                {new Date(source.createdAt).toLocaleDateString()}
+                {new Date(source.createdAt).toLocaleDateString("en-US", {
+                  timeZone: "UTC",
+                })}
               </td>
               <td style={cellStyle}>
                 <span style={statusStyle[source.ingestionStatus]}>
@@ -67,11 +80,7 @@ export function SourceTable({ sources }: { sources: Source[] }) {
           ))}
         </tbody>
       </table>
-      {refreshError ? (
-        <p role="alert" style={errorStyle}>
-          Status refresh failed: {refreshError}
-        </p>
-      ) : null}
+      {refreshErrorAlert}
     </div>
   );
 }
