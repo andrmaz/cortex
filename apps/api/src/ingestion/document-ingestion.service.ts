@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { UnrecoverableError } from "bullmq";
 import { runWithOrgContext } from "db";
 import { PrismaService } from "../prisma/prisma.service";
@@ -23,6 +23,8 @@ export type IngestionStatus =
 
 @Injectable()
 export class DocumentIngestionService {
+  private readonly logger = new Logger(DocumentIngestionService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(EMBEDDING_PROVIDER)
@@ -93,7 +95,13 @@ export class DocumentIngestionService {
         await this.markStatus(job.documentId, "completed", null);
       } catch (error) {
         const reason = actionableErrorMessage(error);
-        await this.markStatus(job.documentId, "failed", reason);
+        try {
+          await this.markStatus(job.documentId, "failed", reason);
+        } catch (statusError) {
+          this.logger.error(
+            `Could not record failed status for document ${job.documentId}: ${statusError instanceof Error ? statusError.message : "unknown error"}`,
+          );
+        }
         throw error;
       }
     });

@@ -182,6 +182,26 @@ describe("DocumentIngestionService", () => {
     });
   });
 
+  it("rethrows the original error when recording the failed status also fails", async () => {
+    const prisma = createPrisma();
+    prisma.document.findUnique.mockResolvedValue(document);
+    prisma.document.update
+      .mockResolvedValueOnce(document)
+      .mockRejectedValueOnce(new Error("db down"));
+    const embeddingProvider: EmbeddingProvider = {
+      embedMany: jest
+        .fn()
+        .mockRejectedValue(new EmbeddingProviderError("rate limited")),
+    };
+
+    const service = new DocumentIngestionService(
+      prisma as unknown as PrismaService,
+      embeddingProvider,
+    );
+
+    await expect(service.process(job)).rejects.toThrow(EmbeddingProviderError);
+  });
+
   it("fails with an actionable error when the chunk count exceeds the limit", async () => {
     const prisma = createPrisma();
     const content = Array.from(

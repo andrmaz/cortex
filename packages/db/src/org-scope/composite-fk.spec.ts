@@ -7,7 +7,7 @@ const migration = readFileSync(
   join(
     prismaDir,
     "migrations",
-    "0005_ingestion_pgvector_chunk_org",
+    "0006_composite_org_foreign_keys",
     "migration.sql",
   ),
   "utf8",
@@ -41,9 +41,16 @@ describe("composite org foreign keys for direct-scoped models", () => {
       migration.indexOf("-- Data recovery"),
     );
     const dropFk = rollback.indexOf("DROP CONSTRAINT IF EXISTS chunks_document");
-    const dropColumn = rollback.indexOf("DROP COLUMN organization_id");
+    const dropIndex = rollback.indexOf("DROP INDEX IF EXISTS documents_id");
     expect(dropFk).toBeGreaterThan(-1);
-    expect(dropColumn).toBeGreaterThan(dropFk);
+    expect(dropIndex).toBeGreaterThan(dropFk);
+  });
+
+  it("preflights cross-organization rows before adding the FKs", () => {
+    expect(migration.indexOf("RAISE EXCEPTION")).toBeGreaterThan(-1);
+    expect(migration.indexOf("RAISE EXCEPTION")).toBeLessThan(
+      migration.indexOf("CREATE UNIQUE INDEX"),
+    );
   });
 });
 
