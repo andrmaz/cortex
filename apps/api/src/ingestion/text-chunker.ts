@@ -52,7 +52,10 @@ function splitOversized(text: string, maxChunkSize: number): string[] {
       window.lastIndexOf(". "),
       window.lastIndexOf(" "),
     );
-    const cut = breakAt > maxChunkSize / 4 ? breakAt + 1 : maxChunkSize;
+    let cut = breakAt > maxChunkSize / 4 ? breakAt + 1 : maxChunkSize;
+    if (cut === maxChunkSize && splitsSurrogatePair(remaining, cut)) {
+      cut -= 1;
+    }
     parts.push(remaining.slice(0, cut).trim());
     remaining = remaining.slice(cut).trim();
   }
@@ -62,4 +65,12 @@ function splitOversized(text: string, maxChunkSize: number): string[] {
   }
 
   return parts;
+}
+
+function splitsSurrogatePair(text: string, cut: number): boolean {
+  const before = text.charCodeAt(cut - 1);
+  const after = text.charCodeAt(cut);
+  return (
+    cut > 1 && before >= 0xd800 && before <= 0xdbff && after >= 0xdc00 && after <= 0xdfff
+  );
 }

@@ -22,4 +22,15 @@ describe("chunkDocumentContent", () => {
   it("returns an empty list for blank content", () => {
     expect(chunkDocumentContent("  \n\n  ")).toEqual([]);
   });
+}));
+
+  it("does not split surrogate pairs when hard-cutting", () => {
+    const text = "a".repeat(9) + "??" + "b".repeat(20);
+    const chunks = chunkDocumentContent(text, 10);
+
+    expect(chunks.join("")).toBe(text);
+    for (const chunk of chunks) {
+      expect(chunk).not.toMatch(/[\ud800-\udbff]$|^[\udc00-\udfff]/);
+    }
+  });
 });

@@ -34,4 +34,16 @@ describe("composite org foreign keys for direct-scoped models", () => {
       'FOREIGN KEY ("document_id", "organization_id")',
     );
   });
+
+  it("documents a rollback that drops constraints before the org column", () => {
+    const rollback = migration.slice(
+      migration.indexOf("-- Rollback"),
+      migration.indexOf("-- Data recovery"),
+    );
+    const dropFk = rollback.indexOf("DROP CONSTRAINT IF EXISTS chunks_document");
+    const dropColumn = rollback.indexOf("DROP COLUMN organization_id");
+    expect(dropFk).toBeGreaterThan(-1);
+    expect(dropColumn).toBeGreaterThan(dropFk);
+  });
 });
+

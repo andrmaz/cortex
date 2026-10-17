@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { UnrecoverableError } from "bullmq";
 import { runWithOrgContext } from "db";
 import { PrismaService } from "../prisma/prisma.service";
 import {
@@ -10,6 +11,9 @@ import type { IngestDocumentJobData } from "./ingestion-queue.service";
 import { chunkDocumentContent } from "./text-chunker";
 
 export { EmbeddingProviderError } from "./embedding.provider";
+
+/** Upper bound on chunks per Document, checked before any embedding allocation. */
+export const MAX_CHUNKS_PER_DOCUMENT = 2_000;
 
 export type IngestionStatus =
   | "pending"
@@ -79,7 +83,7 @@ export class DocumentIngestionService {
             })),
             tx,
           );
-        });
+        }, { timeout: 30_000, maxWait: 10_000 });
 
         await this.markStatus(job.documentId, "completed", null);
       } catch (error) {

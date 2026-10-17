@@ -1,8 +1,18 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "db/client";
-import { createOrgScopedClient, runWithoutOrgScope } from "db";
+import {
+  createOrgScopedClient,
+  getOrgContext,
+  isUnscopedContext,
+  MissingOrgContextError,
+  OrgScopeViolationError,
+  Prisma,
+  runWithoutOrgScope,
+} from "db";
 import invariant from "invariant";
+
+const EMBEDDING_WRITE_BATCH_SIZE = 100;
 
 export interface ChunkEmbeddingWrite {
   readonly chunkId: string;
@@ -104,23 +114,51 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // Only a caller-established unscoped context may span organizations.
+    const context = getOrgContext();
+    if (!context) {
+      throw new MissingOrgContextError("Chunk", "writeChunkEmbeddings");
+    }
+    const activeOrgId = isUnscopedContext(context)
+      ? undefined
+      : context.organizationId;
+
+    const seen = new Set<string>();
+    for (const row of rows) {
+      invariant(
+        row.embedding.length > 0,
+        "chunk embedding must be a non-empty vector",
+      );
+      if (activeOrgId !== undefined && row.organizationId !== activeOrgId) {
+        throw new OrgScopeViolationError("Chunk", "writeChunkEmbeddings");
+      }
+      invariant(
+        !seen.has(row.chunkId),
+        `duplicate embedding write for chunk ${row.chunkId}`,
+      );
+      seen.add(row.chunkId);
+    }
+
     const client = tx ?? this.scoped;
     await runWithoutOrgScope(async () => {
-      for (const row of rows) {
-        invariant(
-          row.embedding.length > 0,
-          "chunk embedding must be a non-empty vector",
+      for (let i = 0; i < rows.length; i += EMBEDDING_WRITE_BATCH_SIZE) {
+        const batch = rows.slice(i, i + EMBEDDING_WRITE_BATCH_SIZE);
+        const values = Prisma.join(
+          batch.map(
+            (row) =>
+              Prisma.sql`(${row.chunkId}::text, ${row.organizationId}::text, ${`[${row.embedding.join(",")}]`}::text)`,
+          ),
         );
-        const vectorLiteral = `[${row.embedding.join(",")}]`;
-        const updated = await client.$executeRaw`
-          UPDATE "chunks"
-          SET "embedding" = ${vectorLiteral}::vector
-          WHERE "id" = ${row.chunkId}
-            AND "organization_id" = ${row.organizationId}
-        `;
+        const updated = await client.$executeRaw(Prisma.sql`
+          UPDATE "chunks" AS c
+          SET "embedding" = v."embedding"::vector
+          FROM (VALUES ${values}) AS v("id", "org", "embedding")
+          WHERE c."id" = v."id"
+            AND c."organization_id" = v."org"
+        `);
         invariant(
-          Number(updated) === 1,
-          `failed to write embedding for chunk ${row.chunkId}`,
+          Number(updated) === batch.length,
+          `failed to write chunk embeddings: expected ${batch.length} updated rows, got ${Number(updated)}`,
         );
       }
     });

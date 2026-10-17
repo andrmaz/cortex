@@ -1,21 +1,21 @@
 -- Enable pgvector and add ingestion status + Chunk organization ownership.
 --
 -- Requires a Postgres image with the vector extension (e.g. pgvector/pgvector).
--- Rollback:
+-- Rollback (constraints first: dropping a column silently drops the composite FK on it):
+--   ALTER TABLE chunks DROP CONSTRAINT IF EXISTS chunks_document_id_organization_id_fkey;
+--   ALTER TABLE chunks ADD CONSTRAINT chunks_document_id_fkey
+--     FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE ON UPDATE CASCADE;
+--   ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_source_id_organization_id_fkey;
+--   ALTER TABLE documents ADD CONSTRAINT documents_source_id_fkey
+--     FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE ON UPDATE CASCADE;
+--   DROP INDEX IF EXISTS documents_id_organization_id_key;
+--   DROP INDEX IF EXISTS sources_id_organization_id_key;
 --   ALTER TABLE chunks DROP COLUMN organization_id;
 --   ALTER TABLE chunks DROP COLUMN embedding;
 --   ALTER TABLE chunks ADD COLUMN embedding BYTEA;
 --   ALTER TABLE documents DROP COLUMN ingestion_error;
 --   ALTER TABLE documents DROP COLUMN ingestion_status;
 --   DROP EXTENSION IF EXISTS vector;
---   ALTER TABLE chunks DROP CONSTRAINT chunks_document_id_organization_id_fkey;
---   ALTER TABLE chunks ADD CONSTRAINT chunks_document_id_fkey
---     FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE ON UPDATE CASCADE;
---   ALTER TABLE documents DROP CONSTRAINT documents_source_id_organization_id_fkey;
---   ALTER TABLE documents ADD CONSTRAINT documents_source_id_fkey
---     FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE ON UPDATE CASCADE;
---   DROP INDEX documents_id_organization_id_key;
---   DROP INDEX sources_id_organization_id_key;
 --   Rolling back drops embeddings and ingestion status; re-run ingestion afterwards.
 --
 -- Data recovery (REQUIRED after applying on a database with existing data):

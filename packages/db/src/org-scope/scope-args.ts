@@ -107,6 +107,7 @@ export function computeScopedArgs(
         organizationId,
         config.field,
         model,
+        config.parentRelations ?? [],
       );
     case "relation":
       return applyRelationScope(nextArgs, operation, organizationId, model);
@@ -142,6 +143,7 @@ function applyDirectScope(
   organizationId: string,
   field: string,
   model: string,
+  parentRelations: readonly string[],
 ): Record<string, unknown> {
   if (operation === "create") {
     const data = isPlainObject(args["data"]) ? args["data"] : {};
@@ -167,6 +169,7 @@ function applyDirectScope(
     args["create"] = { ...create, [field]: organizationId };
     if (isPlainObject(args["update"])) {
       rejectNestedForeignKeyWrite(args["update"], field, model, operation);
+      rejectParentReassignment(args["update"], field, parentRelations, model, operation);
       args["update"] = stripField(args["update"], field);
     }
     return args;
@@ -178,6 +181,7 @@ function applyDirectScope(
     // Never allow a scoped update to reassign a record to another org.
     if (isPlainObject(args["data"])) {
       rejectNestedForeignKeyWrite(args["data"], field, model, operation);
+      rejectParentReassignment(args["data"], field, parentRelations, model, operation);
       args["data"] = stripField(args["data"], field);
     }
     return args;
@@ -195,6 +199,26 @@ function rejectNestedForeignKeyWrite(
     ? foreignKeyField.slice(0, -2)
     : undefined;
   if (relationField && relationField in data) {
+    throw new OrgScopeViolationError(model, operation);
+  }
+}
+
+/**
+ * Models with parent relations share the org column with a composite FK, so
+ * an update that connects another parent (or writes the org column) could
+ * re-home the row into a foreign org. Reject those writes on update paths.
+ */
+function rejectParentReassignment(
+  data: Record<string, unknown>,
+  field: string,
+  parentRelations: readonly string[],
+  model: string,
+  operation: string,
+): void {
+  if (parentRelations.length === 0) {
+    return;
+  }
+  if (field in data || parentRelations.some((relation) => relation in data)) {
     throw new OrgScopeViolationError(model, operation);
   }
 }

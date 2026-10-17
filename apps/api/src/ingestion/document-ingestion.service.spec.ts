@@ -1,7 +1,10 @@
 import { fromPartial } from "@total-typescript/shoehorn";
 import type { Document } from "db";
 import { PrismaService } from "../prisma/prisma.service";
-import { DocumentIngestionService } from "./document-ingestion.service";
+import {
+  DocumentIngestionService,
+  MAX_CHUNKS_PER_DOCUMENT,
+} from "./document-ingestion.service";
 import {
   EmbeddingProviderError,
   type EmbeddingProvider,
@@ -176,6 +179,33 @@ describe("DocumentIngestionService", () => {
     expect(prisma.document.update).toHaveBeenLastCalledWith({
       where: { id: job.documentId },
       data: { ingestionStatus: "completed", ingestionError: null },
+    });
+  });
+}));
+
+  it("fails with an actionable error when the chunk count exceeds the limit", async () => {
+    const prisma = createPrisma();
+    const content = Array.from(
+      { length: MAX_CHUNKS_PER_DOCUMENT + 1 },
+      (_, i) => `p${i}`,
+    ).join("\n\n");
+    prisma.document.findUnique.mockResolvedValue({ ...document, content });
+    prisma.document.update.mockResolvedValue(document);
+    const embeddingProvider: EmbeddingProvider = { embedMany: jest.fn() };
+
+    const service = new DocumentIngestionService(
+      prisma as unknown as PrismaService,
+      embeddingProvider,
+    );
+
+    await expect(service.process(job)).rejects.toThrow(/Split it into smaller/);
+    expect(embeddingProvider.embedMany).not.toHaveBeenCalled();
+    expect(prisma.document.update).toHaveBeenLastCalledWith({
+      where: { id: job.documentId },
+      data: {
+        ingestionStatus: "failed",
+        ingestionError: expect.stringContaining("exceeding the limit"),
+      },
     });
   });
 });

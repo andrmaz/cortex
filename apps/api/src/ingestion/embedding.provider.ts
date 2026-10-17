@@ -4,6 +4,10 @@ import { createHash } from "node:crypto";
 const EMBEDDING_DIMENSIONS = 1_536;
 
 const REQUEST_TIMEOUT_MS = 30_000;
+const MAX_INPUTS_PER_REQUEST = 256;
+/** Conservative: real tokenizers average ~4 chars/token; OpenAI caps requests at 300k tokens. */
+const CHARS_PER_TOKEN_ESTIMATE = 3;
+const MAX_ESTIMATED_TOKENS_PER_REQUEST = 200_000;
 
 /** Extracts only a short machine-readable code; never the raw body, which may echo document content. */
 async function readProviderErrorCode(
@@ -50,7 +54,7 @@ export class DeterministicEmbeddingProvider implements EmbeddingProvider {
 /**
  * OpenAI embeddings via the HTTP API. Requires `OPENAI_API_KEY`.
  */
-class OpenAIEmbeddingProvider implements EmbeddingProvider {
+export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   constructor(
     private readonly apiKey: string,
     private readonly model: string = "text-embedding-3-small",
@@ -58,10 +62,14 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
   ) {}
 
   async embedMany(texts: readonly string[]): Promise<number[][]> {
-    if (texts.length === 0) {
-      return [];
+    const vectors: number[][] = [];
+    for (const batch of batchTexts(texts)) {
+      vectors.push(...(await this.embedBatch(batch)));
     }
+    return vectors;
+  }
 
+  private async embedBatch(texts: readonly string[]): Promise<number[][]> {
     let response: Response;
     try {
       response = await this.fetchImpl("https://api.openai.com/v1/embeddings", {
@@ -73,6 +81,10 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
         body: JSON.stringify({
           model: this.model,
           input: texts,
+          // text-embedding-3* default to wider vectors than the DB column.
+          ...(this.model.startsWith("text-embedding-3")
+            ? { dimensions: EMBEDDING_DIMENSIONS }
+            : {}),
         }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
@@ -114,6 +126,30 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
   }
 }
 
+/** Splits inputs into order-preserving batches within OpenAI request limits. */
+function batchTexts(texts: readonly string[]): string[][] {
+  const batches: string[][] = [];
+  let current: string[] = [];
+  let currentTokens = 0;
+  for (const text of texts) {
+    const tokens = Math.ceil(text.length / CHARS_PER_TOKEN_ESTIMATE);
+    if (
+      current.length > 0 &&
+      (current.length >= MAX_INPUTS_PER_REQUEST ||
+        currentTokens + tokens > MAX_ESTIMATED_TOKENS_PER_REQUEST)
+    ) {
+      batches.push(current);
+      current = [];
+      currentTokens = 0;
+    }
+    current.push(text);
+    currentTokens += tokens;
+  }
+  if (current.length > 0) {
+    batches.push(current);
+  }
+  return batches;
+}
 export function createEmbeddingProviderFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): EmbeddingProvider {
