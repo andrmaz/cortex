@@ -42,6 +42,11 @@ export class DocumentIngestionService {
         }
 
         const texts = chunkDocumentContent(document.content);
+        if (texts.length > MAX_CHUNKS_PER_DOCUMENT) {
+          throw new UnrecoverableError(
+            `Document produced ${texts.length} chunks, exceeding the limit of ${MAX_CHUNKS_PER_DOCUMENT}. Split it into smaller documents.`,
+          );
+        }
         // Embed before any write so a provider failure keeps prior chunks.
         const vectors =
           texts.length === 0 ? [] : await this.embeddings.embedMany(texts);
