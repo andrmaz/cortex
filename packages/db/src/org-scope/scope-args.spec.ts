@@ -1,5 +1,8 @@
 import { computeScopedArgs, getScopeConfig } from "./scope-args.js";
-import { UnknownOrgScopeModelError } from "./errors.js";
+import {
+  OrgScopeViolationError,
+  UnknownOrgScopeModelError,
+} from "./errors.js";
 
 const ORG_ID = "org-1";
 
@@ -156,6 +159,70 @@ describe("computeScopedArgs — direct scope (User, Department, ...)", () => {
     expect(result["data"]).toEqual({ name: "Renamed" });
   });
 
+  it.each([
+    ["Document", "update", "source", { connect: { id: "foreign-source" } }],
+    ["Document", "updateMany", "source", { connect: { id: "foreign-source" } }],
+    ["Document", "update", "organizationId", "other-org"],
+    ["Chunk", "update", "document", { connect: { id: "foreign-doc" } }],
+    ["Chunk", "update", "organization", { connect: { id: "other-org" } }],
+    ["Chunk", "update", "document", { disconnect: true }],
+  ])("rejects %s.%s writing %s (cross-org reassignment)", (model, operation, key, value) => {
+    expect(() =>
+      computeScopedArgs(
+        {
+          model,
+          operation,
+          args: { where: { id: "x" }, data: { [key]: value } },
+        },
+        ORG_ID,
+      ),
+    ).toThrow(OrgScopeViolationError);
+  });
+
+  it.each([
+    ["Document", "source", { connect: { id: "foreign-source" } }],
+    ["Document", "organizationId", "other-org"],
+    ["Chunk", "document", { connect: { id: "foreign-doc" } }],
+  ])("rejects %s upsert update writing %s", (model, key, value) => {
+    expect(() =>
+      computeScopedArgs(
+        {
+          model,
+          operation: "upsert",
+          args: { where: { id: "x" }, create: {}, update: { [key]: value } },
+        },
+        ORG_ID,
+      ),
+    ).toThrow(OrgScopeViolationError);
+  });
+
+  it("still allows a Document create with source.connect and forces organizationId", () => {
+    const result = computeScopedArgs(
+      {
+        model: "Document",
+        operation: "create",
+        args: { data: { source: { connect: { id: "s1" } } } },
+      },
+      ORG_ID,
+    );
+    expect(result["data"]).toEqual({
+      source: { connect: { id: "s1" } },
+      organizationId: ORG_ID,
+    });
+  });
+
+  it("still allows plain Document/Chunk updates", () => {
+    const result = computeScopedArgs(
+      {
+        model: "Chunk",
+        operation: "update",
+        args: { where: { id: "c1" }, data: { content: "x" } },
+      },
+      ORG_ID,
+    );
+    expect(result["data"]).toEqual({ content: "x" });
+  });
+
   it("scopes updateMany and deleteMany where clauses", () => {
     const updateResult = computeScopedArgs(
       {
@@ -253,7 +320,7 @@ describe("computeScopedArgs — direct scope (User, Department, ...)", () => {
   });
 });
 
-describe("computeScopedArgs — relation scope (UserDepartment, Document, Chunk, QueryLog)", () => {
+describe("computeScopedArgs — relation scope (UserDepartment, QueryLog)", () => {
   it("merges a single-hop relation filter for UserDepartment reads", () => {
     const result = computeScopedArgs(
       {
@@ -265,16 +332,6 @@ describe("computeScopedArgs — relation scope (UserDepartment, Document, Chunk,
     );
     expect(result["where"]).toEqual({
       AND: [{ userId: "u1" }, { user: { organizationId: ORG_ID } }],
-    });
-  });
-
-  it("merges a multi-hop relation filter for Chunk reads", () => {
-    const result = computeScopedArgs(
-      { model: "Chunk", operation: "findMany", args: {} },
-      ORG_ID,
-    );
-    expect(result["where"]).toEqual({
-      document: { source: { organizationId: ORG_ID } },
     });
   });
 
@@ -310,6 +367,38 @@ describe("computeScopedArgs — relation scope (UserDepartment, Document, Chunk,
       ORG_ID,
     );
     expect(result).toEqual(args);
+  });
+});
+
+describe("computeScopedArgs — direct scope (Document, Chunk)", () => {
+  it("forces organizationId on Chunk create", () => {
+    const result = computeScopedArgs(
+      {
+        model: "Chunk",
+        operation: "create",
+        args: {
+          data: {
+            documentId: "doc-1",
+            content: "hello",
+            organizationId: "attacker-org",
+          },
+        },
+      },
+      ORG_ID,
+    );
+    expect(result["data"]).toEqual({
+      documentId: "doc-1",
+      content: "hello",
+      organizationId: ORG_ID,
+    });
+  });
+
+  it("merges organizationId into Document findMany", () => {
+    const result = computeScopedArgs(
+      { model: "Document", operation: "findMany", args: {} },
+      ORG_ID,
+    );
+    expect(result["where"]).toEqual({ organizationId: ORG_ID });
   });
 
   it("throws on an unrecognized operation", () => {

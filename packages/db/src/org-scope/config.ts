@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Declarative org-scoping strategy per Prisma model.
  *
  * Every model in `schema.prisma` MUST have an entry here — the extension
@@ -10,12 +10,21 @@ export type OrgScopeConfig =
   /** The model itself IS the tenant boundary (only `Organization`). */
   | { readonly kind: "self" }
   /** The model has an `organizationId` column directly. */
-  | { readonly kind: "direct"; readonly field: string }
+  | {
+      readonly kind: "direct";
+      readonly field: string;
+      /**
+       * Parent relation fields guarded by a composite FK including the org
+       * column. Nested writes to them (and to the org column) on update paths
+       * are rejected, since they could re-home the row into another org.
+       */
+      readonly parentRelations?: readonly string[];
+    }
   /**
    * The model is scoped transitively through a relation. `chain` is the
    * sequence of relation field names ending in the scalar `organizationId`
    * field on the final related model, e.g. `["document", "source",
-   * "organizationId"]` for `Chunk`.
+   * "organizationId"]` for relation-scoped models.
    */
   | {
       readonly kind: "relation";
@@ -55,14 +64,14 @@ export const ORG_SCOPE_CONFIG: Readonly<Record<string, OrgScopeConfig>> = {
     ],
   },
   Document: {
-    kind: "relation",
-    chain: ["source", "organizationId"],
-    verifyVia: [{ foreignKeyField: "sourceId", parentModel: "Source" }],
+    kind: "direct",
+    field: "organizationId",
+    parentRelations: ["source"],
   },
   Chunk: {
-    kind: "relation",
-    chain: ["document", "source", "organizationId"],
-    verifyVia: [{ foreignKeyField: "documentId", parentModel: "Document" }],
+    kind: "direct",
+    field: "organizationId",
+    parentRelations: ["document"],
   },
   QueryLog: {
     kind: "relation",
@@ -70,3 +79,4 @@ export const ORG_SCOPE_CONFIG: Readonly<Record<string, OrgScopeConfig>> = {
     verifyVia: [{ foreignKeyField: "userId", parentModel: "User" }],
   },
 };
+

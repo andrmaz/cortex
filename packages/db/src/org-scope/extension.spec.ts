@@ -296,80 +296,57 @@ describe("createOrgScopedClient", () => {
     expect(createUserDepartment).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["create", { data: { source: { connect: { id: "cross-org-source" } } } }],
-    [
-      "update",
-      {
-        where: { id: "document-1" },
-        data: { source: { connect: { id: "cross-org-source" } } },
-      },
-    ],
-    [
-      "upsert create branch",
-      {
-        where: { id: "document-1" },
-        create: { source: { connect: { id: "cross-org-source" } } },
-        update: { sourceId: "source-1" },
-      },
-    ],
-    [
-      "upsert update branch",
-      {
-        where: { id: "document-1" },
-        create: { sourceId: "source-1" },
-        update: { source: { connect: { id: "cross-org-source" } } },
-      },
-    ],
-  ])(
-    "rejects cross-organization nested connect during %s",
-    async (label, args) => {
-      const operation = label.startsWith("upsert") ? "upsert" : label;
-      const findSource = jest.fn(async (input: unknown) => {
-        const { where } = input as { where: { id?: string } };
-        return where.id === "source-1" ? { id: "source-1" } : null;
-      });
-      const writeDocument = jest.fn();
-      const client = createOrgScopedClient(
-        createFakeBaseClient({
-          source: { findUnique: findSource },
-          document: { [operation]: writeDocument },
-        }) as unknown as FakeClient,
-      );
-
-      await expect(
-        runWithOrgContext("org-1", () =>
-          callModel(client, "document", operation, args),
-        ),
-      ).rejects.toThrow(OrgScopeViolationError);
-      expect(findSource).toHaveBeenCalledWith({
-        where: { id: "cross-org-source", organizationId: "org-1" },
-      });
-      expect(writeDocument).not.toHaveBeenCalled();
-    },
-  );
-
-  it("allows an in-scope nested connect during create", async () => {
-    const findSource = jest.fn().mockResolvedValue({ id: "source-1" });
+  it("forces organizationId on Document create under direct scope", async () => {
     const createDocument = jest.fn().mockResolvedValue({ id: "document-1" });
     const client = createOrgScopedClient(
       createFakeBaseClient({
-        source: { findUnique: findSource },
         document: { create: createDocument },
       }) as unknown as FakeClient,
     );
 
     await runWithOrgContext("org-1", () =>
       callModel(client, "document", "create", {
-        data: { source: { connect: { id: "source-1" } } },
+        data: {
+          sourceId: "source-1",
+          content: "hello",
+          organizationId: "attacker-org",
+        },
       }),
     );
 
-    expect(findSource).toHaveBeenCalledWith({
-      where: { id: "source-1", organizationId: "org-1" },
-    });
     expect(createDocument).toHaveBeenCalledWith({
-      data: { source: { connect: { id: "source-1" } } },
+      data: {
+        sourceId: "source-1",
+        content: "hello",
+        organizationId: "org-1",
+      },
+    });
+  });
+
+  it("forces organizationId on Chunk create under direct scope", async () => {
+    const createChunk = jest.fn().mockResolvedValue({ id: "chunk-1" });
+    const client = createOrgScopedClient(
+      createFakeBaseClient({
+        chunk: { create: createChunk },
+      }) as unknown as FakeClient,
+    );
+
+    await runWithOrgContext("org-1", () =>
+      callModel(client, "chunk", "create", {
+        data: {
+          documentId: "document-1",
+          content: "hello",
+          organizationId: "attacker-org",
+        },
+      }),
+    );
+
+    expect(createChunk).toHaveBeenCalledWith({
+      data: {
+        documentId: "document-1",
+        content: "hello",
+        organizationId: "org-1",
+      },
     });
   });
 
