@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint --max-warnings 0",
+    "test": "node --experimental-strip-types --test \"app/**/*.test.ts\"",
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {

@@ -9,30 +9,41 @@ export function startSourceStatusPolling<T>(
   let stopped = false;
   let inFlight = false;
 
-  const timer = setInterval(async () => {
+  const report = (result: SourceStatusRefreshResult<T>) => {
+    if ("sources" in result) {
+      onSources(result.sources);
+    } else {
+      onError(result.error);
+    }
+  };
+
+  const refreshAndReport = async () => {
+    try {
+      const result = await refresh();
+      if (!stopped) {
+        report(result);
+      }
+    } catch {
+      if (!stopped) {
+        onError("Failed to refresh source status.");
+      }
+    }
+  };
+
+  const tick = async () => {
     if (stopped || inFlight) {
       return;
     }
 
     inFlight = true;
     try {
-      const result = await refresh();
-      if (stopped) {
-        return;
-      }
-      if ("sources" in result) {
-        onSources(result.sources);
-      } else {
-        onError(result.error);
-      }
-    } catch {
-      if (!stopped) {
-        onError("Failed to refresh source status.");
-      }
+      await refreshAndReport();
     } finally {
       inFlight = false;
     }
-  }, intervalMs);
+  };
+
+  const timer = setInterval(tick, intervalMs);
 
   return () => {
     stopped = true;
