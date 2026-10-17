@@ -48,6 +48,11 @@ pnpm dev
 - `packages/eslint-config` - ESLint configurations (`@cortex/eslint-config`)
 - `packages/typescript-config` - TypeScript configurations (`@cortex/typescript-config`)
 
+## Architecture
+
+- [Cortex system and Admin Web diagrams](docs/architecture.md)
+- [Architecture decision records](docs/adr/)
+
 ## Commands
 
 ```sh
