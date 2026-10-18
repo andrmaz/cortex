@@ -1,7 +1,4 @@
----
-description: Construction discipline from Code Complete
-alwaysApply: true
----
+**Description:** Construction discipline from Code Complete
 
 # Code Complete
 
