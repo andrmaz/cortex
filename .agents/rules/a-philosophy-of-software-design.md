@@ -1,7 +1,4 @@
----
-description: Deep modules and complexity checks from A Philosophy of Software Design
-alwaysApply: true
----
+**Description:** Deep modules and complexity checks from A Philosophy of Software Design
 
 # A Philosophy of Software Design
 
