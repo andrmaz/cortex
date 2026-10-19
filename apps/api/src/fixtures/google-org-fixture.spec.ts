@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from "vitest";
 import {
   FixtureConflictError,
   GOOGLE_ORG_FIXTURE,
@@ -7,21 +8,21 @@ import type { PrismaService } from "../prisma/prisma.service";
 
 function makePrisma(users: { byEmail?: object | null; bySub?: object | null }) {
   const client = {
-    organization: { upsert: jest.fn().mockResolvedValue({ id: "org-1" }) },
+    organization: { upsert: vi.fn().mockResolvedValue({ id: "org-1" }) },
     user: {
-      findUnique: jest
+      findUnique: vi
         .fn()
         .mockImplementation(({ where }: { where: { email?: string } }) =>
           Promise.resolve((where.email ? users.byEmail : users.bySub) ?? null),
         ),
-      upsert: jest.fn().mockResolvedValue({ id: "user-1" }),
+      upsert: vi.fn().mockResolvedValue({ id: "user-1" }),
     },
-    department: { upsert: jest.fn().mockResolvedValue({ id: "dept-1" }) },
+    department: { upsert: vi.fn().mockResolvedValue({ id: "dept-1" }) },
     userDepartment: {
-      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-      upsert: jest.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      upsert: vi.fn().mockResolvedValue({}),
     },
-    $transaction: jest.fn(),
+    $transaction: vi.fn(),
   };
   client.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
     fn(client),
