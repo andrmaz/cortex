@@ -15,23 +15,53 @@ export const GOOGLE_ORG_FIXTURE = {
 
 type FixtureClient = Pick<
   PrismaService,
-  "organization" | "user" | "department"
+  "organization" | "user" | "department" | "userDepartment"
 >;
 
-/** Idempotently provisions the fixture organization, admin user and department. */
+export class FixtureConflictError extends Error {}
+
+/**
+ * Idempotently provisions the fixture organization, admin user and
+ * department. Refuses to touch pre-existing identities that are not the
+ * fixture's own (it never re-homes or elevates another user).
+ */
 export async function seedGoogleOrgFixture(
   prisma: FixtureClient,
 ): Promise<{ organizationId: string; adminUserId: string }> {
   return runWithoutOrgScope(async () => {
+    const existingByEmail = await prisma.user.findUnique({
+      where: { email: GOOGLE_ORG_FIXTURE.adminEmail },
+    });
+    const existingBySub = await prisma.user.findUnique({
+      where: { googleSub: GOOGLE_ORG_FIXTURE.adminGoogleSub },
+    });
+    const isFixtureUser = (user: typeof existingByEmail): boolean =>
+      user?.email === GOOGLE_ORG_FIXTURE.adminEmail &&
+      user.googleSub === GOOGLE_ORG_FIXTURE.adminGoogleSub;
+    if (
+      (existingByEmail && !isFixtureUser(existingByEmail)) ||
+      (existingBySub && !isFixtureUser(existingBySub))
+    ) {
+      throw new FixtureConflictError(
+        "A non-fixture user already uses the fixture email or Google subject",
+      );
+    }
+
     const organization = await prisma.organization.upsert({
       where: { name: GOOGLE_ORG_FIXTURE.organizationName },
       update: {},
       create: { name: GOOGLE_ORG_FIXTURE.organizationName },
     });
 
+    if (existingByEmail && existingByEmail.organizationId !== organization.id) {
+      throw new FixtureConflictError(
+        "Fixture user belongs to a different organization",
+      );
+    }
+
     const admin = await prisma.user.upsert({
       where: { email: GOOGLE_ORG_FIXTURE.adminEmail },
-      update: { role: "admin", organizationId: organization.id },
+      update: { role: "admin" },
       create: {
         email: GOOGLE_ORG_FIXTURE.adminEmail,
         googleSub: GOOGLE_ORG_FIXTURE.adminGoogleSub,
@@ -40,7 +70,7 @@ export async function seedGoogleOrgFixture(
       },
     });
 
-    await prisma.department.upsert({
+    const department = await prisma.department.upsert({
       where: {
         organizationId_name: {
           organizationId: organization.id,
@@ -51,6 +81,18 @@ export async function seedGoogleOrgFixture(
       create: {
         name: GOOGLE_ORG_FIXTURE.departmentName,
         organizationId: organization.id,
+      },
+    });
+
+    await prisma.userDepartment.upsert({
+      where: {
+        userId_departmentId: { userId: admin.id, departmentId: department.id },
+      },
+      update: { isPrimary: true },
+      create: {
+        userId: admin.id,
+        departmentId: department.id,
+        isPrimary: true,
       },
     });
 

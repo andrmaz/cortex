@@ -43,31 +43,47 @@ describe("GET /auth/dev-login", () => {
     process.env["NODE_ENV"] = "test";
   });
 
-  const get = (email = "qa-admin@fixture.test") =>
-    request(app.getHttpServer()).get("/auth/dev-login").query({ email });
+  const get = () => request(app.getHttpServer()).get("/auth/dev-login");
 
   it("returns 404 unless CORTEX_DEV_LOGIN=true", async () => {
     delete process.env["CORTEX_DEV_LOGIN"];
     await get().expect(404);
   });
 
-  it("returns 404 in production even when enabled", async () => {
-    process.env["NODE_ENV"] = "production";
-    await get().expect(404);
-  });
+  it.each(["production", undefined, "staging"])(
+    `returns 404 when NODE_ENV is %s`,
+    async (env) => {
+      if (env === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = env;
+      await get().expect(404);
+    },
+  );
 
   it("redirects with an error for an unknown user", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
-    const res = await get("nobody@fixture.test").expect(302);
+    const res = await get().expect(302);
     expect(res.headers["location"]).toBe(
       "http://web.test/auth/callback?error=authentication_failed",
     );
+  });
+
+  it("rejects a user with the fixture email but a different Google sub", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "u2",
+      email: "qa-admin@fixture.test",
+      googleSub: "real-sub",
+      organizationId: "o2",
+      role: "admin",
+    });
+    const res = await get().expect(302);
+    expect(res.headers["location"]).toContain("error=authentication_failed");
   });
 
   it("redirects with a one-time code that exchanges for a token", async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: "u1",
       email: "qa-admin@fixture.test",
+      googleSub: "fixture-google-sub-qa-admin",
       organizationId: "o1",
       role: "admin",
     });

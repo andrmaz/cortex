@@ -16,8 +16,8 @@
 Real Google login is unavailable to QA. Seed a fake org and sign in:
 
 1. `pnpm --filter @cortex/api seed:fixture` (creates org `fixture.test`, admin `qa-admin@fixture.test`, department `QA`; idempotent).
-2. Set `CORTEX_DEV_LOGIN=true` for the API (ignored/404 when `NODE_ENV=production`).
-3. Open `http://localhost:4000/auth/dev-login?email=qa-admin@fixture.test`; it redirects to the web app with a session.
+2. Set `CORTEX_DEV_LOGIN=true` for the API and seed command (run the API with `NODE_ENV=development`; the endpoint is 404 unless `NODE_ENV` is `development` or `test`; the seed refuses `production`).
+3. Open `http://localhost:4000/auth/dev-login`; it signs in only the fixture admin and redirects to the web app with a session.
 
 ## Current repo reality
 

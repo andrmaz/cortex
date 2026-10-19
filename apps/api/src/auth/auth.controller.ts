@@ -10,11 +10,11 @@ import {
   HttpStatus,
   BadRequestException,
   NotFoundException,
-  Query,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { UserService } from "./user.service";
+import { GOOGLE_ORG_FIXTURE } from "../fixtures/google-org-fixture";
 import { GoogleAuthGuard } from "./guards/google-auth.guard";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import type {
@@ -85,30 +85,28 @@ export class AuthController {
   }
 
   /**
-   * Fixture-only login for QA: signs in an already-seeded user without
-   * Google. Disabled (404) unless CORTEX_DEV_LOGIN=true and NODE_ENV is not
-   * production. It never provisions users.
+   * Fixture-only login for QA: signs in the seeded fixture admin (and only
+   * that identity) without Google. Disabled (404) unless CORTEX_DEV_LOGIN=true
+   * and NODE_ENV is explicitly "development" or "test". It never provisions
+   * users and rejects any user that is not the exact seeded fixture identity.
    */
   @Get("dev-login")
-  async devLogin(
-    @Query("email") email: unknown,
-    @Res() res: Response,
-  ): Promise<void> {
+  async devLogin(@Res() res: Response): Promise<void> {
+    const env = process.env["NODE_ENV"];
     if (
       process.env["CORTEX_DEV_LOGIN"] !== "true" ||
-      process.env["NODE_ENV"] === "production"
+      (env !== "development" && env !== "test")
     ) {
       throw new NotFoundException();
     }
 
     const webUrl = process.env["CORTEX_WEB_URL"] ?? "http://localhost:3000";
     const callbackUrl = new URL("/auth/callback", webUrl);
-    const dbUser =
-      typeof email === "string" && email.length > 0
-        ? await this.userService.findByEmail(email)
-        : null;
+    const dbUser = await this.userService.findByEmail(
+      GOOGLE_ORG_FIXTURE.adminEmail,
+    );
 
-    if (!dbUser) {
+    if (!dbUser || dbUser.googleSub !== GOOGLE_ORG_FIXTURE.adminGoogleSub) {
       callbackUrl.searchParams.set("error", "authentication_failed");
       res.redirect(callbackUrl.toString());
       return;
@@ -126,7 +124,6 @@ export class AuthController {
     );
     res.redirect(callbackUrl.toString());
   }
-
   /**
    * Exchanges a one-time OAuth code for the session JWT. The web callback
    * calls this server-to-server so the token never appears in a browser URL.
