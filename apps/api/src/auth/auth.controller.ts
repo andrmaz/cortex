@@ -9,6 +9,8 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  NotFoundException,
+  Query,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
@@ -80,6 +82,49 @@ export class AuthController {
       callbackUrl.searchParams.set("error", "authentication_failed");
       res.redirect(callbackUrl.toString());
     }
+  }
+
+  /**
+   * Fixture-only login for QA: signs in an already-seeded user without
+   * Google. Disabled (404) unless CORTEX_DEV_LOGIN=true and NODE_ENV is not
+   * production. It never provisions users.
+   */
+  @Get("dev-login")
+  async devLogin(
+    @Query("email") email: unknown,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (
+      process.env["CORTEX_DEV_LOGIN"] !== "true" ||
+      process.env["NODE_ENV"] === "production"
+    ) {
+      throw new NotFoundException();
+    }
+
+    const webUrl = process.env["CORTEX_WEB_URL"] ?? "http://localhost:3000";
+    const callbackUrl = new URL("/auth/callback", webUrl);
+    const dbUser =
+      typeof email === "string" && email.length > 0
+        ? await this.userService.findByEmail(email)
+        : null;
+
+    if (!dbUser) {
+      callbackUrl.searchParams.set("error", "authentication_failed");
+      res.redirect(callbackUrl.toString());
+      return;
+    }
+
+    const token = this.authService.issueToken({
+      id: dbUser.id,
+      email: dbUser.email,
+      organizationId: dbUser.organizationId,
+      role: dbUser.role,
+    });
+    callbackUrl.searchParams.set(
+      "code",
+      this.authService.issueOneTimeCode(token),
+    );
+    res.redirect(callbackUrl.toString());
   }
 
   /**

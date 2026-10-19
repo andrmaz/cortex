@@ -11,6 +11,14 @@
 - Run the most relevant lint and type-check commands for affected workspaces.
 - If no reliable automated tests exist for changed code, include manual verification steps.
 
+## QA login fixture
+
+Real Google login is unavailable to QA. Seed a fake org and sign in:
+
+1. `pnpm --filter @cortex/api seed:fixture` (creates org `fixture.test`, admin `qa-admin@fixture.test`, department `QA`; idempotent).
+2. Set `CORTEX_DEV_LOGIN=true` for the API (ignored/404 when `NODE_ENV=production`).
+3. Open `http://localhost:4000/auth/dev-login?email=qa-admin@fixture.test`; it redirects to the web app with a session.
+
 ## Current repo reality
 
 - API test script is currently a placeholder and intentionally fails.
