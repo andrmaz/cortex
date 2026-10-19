@@ -3,6 +3,7 @@
   "ui": "tui",
   "globalEnv": [
     "JWT_SECRET",
+    "CORTEX_DEV_LOGIN",
     "DATABASE_URL",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
