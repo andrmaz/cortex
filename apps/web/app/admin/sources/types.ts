@@ -5,6 +5,9 @@ export interface Source {
   organizationId: string;
   createdAt: string;
   updatedAt: string;
+  ingestionStatus: "pending" | "running" | "completed" | "failed";
+  ingestionError: string | null;
+  completedChunkCount: number;
 }
 
 export interface UploadedDocument {
