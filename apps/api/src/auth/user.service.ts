@@ -34,6 +34,13 @@ export class UserService {
     );
   }
 
+  /** Cross-organization lookup used by the dev-only fixture login. */
+  async findByEmail(email: string): Promise<User | null> {
+    return runWithoutOrgScope(() =>
+      this.prisma.user.findUnique({ where: { email } }),
+    );
+  }
+
   async findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
   }
