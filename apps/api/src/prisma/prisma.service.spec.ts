@@ -1,4 +1,13 @@
 import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  beforeAll,
+  vi,
+  type Mock,
+} from "vitest";
+import {
   MissingOrgContextError,
   OrgScopeViolationError,
   runWithOrgContext,
@@ -16,8 +25,8 @@ function makeRows(count: number, organizationId = "org-a") {
 
 describe("PrismaService.writeChunkEmbeddings", () => {
   let service: PrismaService;
-  let executeRaw: jest.Mock;
-  let tx: { $executeRaw: jest.Mock };
+  let executeRaw: Mock;
+  let tx: { $executeRaw: Mock };
 
   beforeAll(() => {
     process.env["DATABASE_URL"] ??=
@@ -26,7 +35,7 @@ describe("PrismaService.writeChunkEmbeddings", () => {
   });
 
   beforeEach(() => {
-    executeRaw = jest.fn();
+    executeRaw = vi.fn();
     tx = { $executeRaw: executeRaw };
   });
 

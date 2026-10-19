@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { GoogleStrategy } from "./google.strategy";
 
 const ENV_KEYS = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] as const;

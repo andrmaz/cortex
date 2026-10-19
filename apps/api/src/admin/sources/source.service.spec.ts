@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   ConflictException,
   NotFoundException,
@@ -40,25 +41,25 @@ const file: UploadFile = {
 
 const prisma = {
   source: {
-    findMany: jest.fn(),
-    findUnique: jest.fn(),
-    create: jest.fn(),
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
   },
   document: {
-    findFirst: jest.fn(),
-    create: jest.fn(),
-    delete: jest.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
   },
 };
 const queue = {
-  enqueueDocument: jest.fn(),
+  enqueueDocument: vi.fn(),
 };
 
 describe("SourceService", () => {
   let service: SourceService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SourceService,

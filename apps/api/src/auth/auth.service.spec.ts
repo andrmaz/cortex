@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { UnauthorizedException } from "@nestjs/common";
@@ -132,7 +133,7 @@ describe("AuthService", () => {
 
   describe("one-time codes", () => {
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it("exchanges a code for the original token once", () => {
@@ -152,11 +153,11 @@ describe("AuthService", () => {
     });
 
     it("rejects an expired code", () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       const token = service.issueToken(mockUser);
       const code = service.issueOneTimeCode(token);
 
-      jest.setSystemTime(Date.now() + 60_001);
+      vi.setSystemTime(Date.now() + 60_001);
 
       expect(() => service.consumeOneTimeCode(code)).toThrow(
         UnauthorizedException,

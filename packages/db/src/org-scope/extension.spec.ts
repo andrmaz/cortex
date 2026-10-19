@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from "vitest";
 import invariant from "invariant";
 import { createOrgScopedClient } from "./extension.js";
 import { runWithOrgContext, runWithoutOrgScope } from "./context.js";
@@ -123,7 +124,7 @@ function createFakeBaseClient(
 
 describe("createOrgScopedClient", () => {
   it("throws MissingOrgContextError and never calls the underlying query when no context is active", async () => {
-    const underlying = jest.fn();
+    const underlying = vi.fn();
     const client = createOrgScopedClient(
       createFakeBaseClient({
         department: { findMany: underlying },
@@ -137,7 +138,7 @@ describe("createOrgScopedClient", () => {
   });
 
   it("injects the org filter into a direct-scoped model's read args", async () => {
-    const underlying = jest.fn().mockResolvedValue([{ id: "dept-1" }]);
+    const underlying = vi.fn().mockResolvedValue([{ id: "dept-1" }]);
     const client = createOrgScopedClient(
       createFakeBaseClient({
         department: { findMany: underlying },
@@ -155,7 +156,7 @@ describe("createOrgScopedClient", () => {
   });
 
   it("forces organizationId on create, ignoring a caller-supplied value", async () => {
-    const underlying = jest.fn().mockResolvedValue({ id: "dept-1" });
+    const underlying = vi.fn().mockResolvedValue({ id: "dept-1" });
     const client = createOrgScopedClient(
       createFakeBaseClient({
         department: { create: underlying },
@@ -174,7 +175,7 @@ describe("createOrgScopedClient", () => {
   });
 
   it("scopes the self-referential Organization model to the caller's own id", async () => {
-    const underlying = jest.fn().mockResolvedValue([{ id: "org-1" }]);
+    const underlying = vi.fn().mockResolvedValue([{ id: "org-1" }]);
     const client = createOrgScopedClient(
       createFakeBaseClient({
         organization: { findMany: underlying },
@@ -189,7 +190,7 @@ describe("createOrgScopedClient", () => {
   });
 
   it("bypasses scoping entirely inside runWithoutOrgScope", async () => {
-    const underlying = jest.fn().mockResolvedValue({ id: "org-2" });
+    const underlying = vi.fn().mockResolvedValue({ id: "org-2" });
     const client = createOrgScopedClient(
       createFakeBaseClient({
         organization: { findUnique: underlying },
@@ -206,13 +207,13 @@ describe("createOrgScopedClient", () => {
   });
 
   it("allows a relation-scoped create when the referenced parent belongs to the caller's org", async () => {
-    const findUser = jest
+    const findUser = vi
       .fn()
       .mockResolvedValue({ id: "user-1", organizationId: "org-1" });
-    const findDepartment = jest
+    const findDepartment = vi
       .fn()
       .mockResolvedValue({ id: "dept-1", organizationId: "org-1" });
-    const createUserDepartment = jest.fn().mockResolvedValue({ id: "ud-1" });
+    const createUserDepartment = vi.fn().mockResolvedValue({ id: "ud-1" });
     const client = createOrgScopedClient(
       createFakeBaseClient({
         user: { findUnique: findUser },
@@ -244,13 +245,13 @@ describe("createOrgScopedClient", () => {
   it("rejects a relation-scoped create when the referenced parent belongs to another org", async () => {
     // The recursive `user.findUnique` lookup is itself org-scoped, so a
     // foreign-org user id resolves to nothing under the caller's context.
-    const findUnique = jest.fn().mockResolvedValue(null);
-    const createUserDepartment = jest.fn();
+    const findUnique = vi.fn().mockResolvedValue(null);
+    const createUserDepartment = vi.fn();
     const client = createOrgScopedClient(
       createFakeBaseClient({
         user: { findUnique },
         department: {
-          findUnique: jest.fn().mockResolvedValue({ id: "dept-1" }),
+          findUnique: vi.fn().mockResolvedValue({ id: "dept-1" }),
         },
         userDepartment: { create: createUserDepartment },
       }) as unknown as FakeClient,
@@ -268,9 +269,9 @@ describe("createOrgScopedClient", () => {
   });
 
   it("rejects an in-scope user paired with another organization's department", async () => {
-    const findUser = jest.fn().mockResolvedValue({ id: "user-1" });
-    const findDepartment = jest.fn().mockResolvedValue(null);
-    const createUserDepartment = jest.fn();
+    const findUser = vi.fn().mockResolvedValue({ id: "user-1" });
+    const findDepartment = vi.fn().mockResolvedValue(null);
+    const createUserDepartment = vi.fn();
     const client = createOrgScopedClient(
       createFakeBaseClient({
         user: { findUnique: findUser },
@@ -297,7 +298,7 @@ describe("createOrgScopedClient", () => {
   });
 
   it("forces organizationId on Document create under direct scope", async () => {
-    const createDocument = jest.fn().mockResolvedValue({ id: "document-1" });
+    const createDocument = vi.fn().mockResolvedValue({ id: "document-1" });
     const client = createOrgScopedClient(
       createFakeBaseClient({
         document: { create: createDocument },
@@ -324,7 +325,7 @@ describe("createOrgScopedClient", () => {
   });
 
   it("forces organizationId on Chunk create under direct scope", async () => {
-    const createChunk = jest.fn().mockResolvedValue({ id: "chunk-1" });
+    const createChunk = vi.fn().mockResolvedValue({ id: "chunk-1" });
     const client = createOrgScopedClient(
       createFakeBaseClient({
         chunk: { create: createChunk },
@@ -351,7 +352,7 @@ describe("createOrgScopedClient", () => {
   });
 
   it("keeps concurrent requests for different organizations isolated", async () => {
-    const underlying = jest.fn(async (args: unknown) => args);
+    const underlying = vi.fn(async (args: unknown) => args);
     const client = createOrgScopedClient(
       createFakeBaseClient({
         department: { findMany: underlying },
@@ -372,7 +373,7 @@ describe("createOrgScopedClient", () => {
   });
 
   it("rejects $queryRaw when a tenant context is active", async () => {
-    const underlying = jest.fn();
+    const underlying = vi.fn();
     const client = createOrgScopedClient(
       createFakeBaseClient(
         {},
@@ -389,7 +390,7 @@ describe("createOrgScopedClient", () => {
   });
 
   it("rejects $queryRaw when no org context is active", async () => {
-    const underlying = jest.fn();
+    const underlying = vi.fn();
     const client = createOrgScopedClient(
       createFakeBaseClient(
         {},
@@ -404,7 +405,7 @@ describe("createOrgScopedClient", () => {
   });
 
   it("allows $queryRaw inside runWithoutOrgScope", async () => {
-    const underlying = jest.fn().mockResolvedValue([{ ok: 1 }]);
+    const underlying = vi.fn().mockResolvedValue([{ ok: 1 }]);
     const client = createOrgScopedClient(
       createFakeBaseClient(
         {},

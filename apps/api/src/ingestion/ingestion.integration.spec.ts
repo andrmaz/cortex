@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from "vitest";
 import { Test } from "@nestjs/testing";
 import { fromPartial } from "@total-typescript/shoehorn";
 import type { Document } from "db";
@@ -46,7 +47,7 @@ describe("Ingestion happy path (upload → job → indexed chunks)", () => {
 
     const prisma = {
       source: {
-        findUnique: jest.fn().mockResolvedValue({
+        findUnique: vi.fn().mockResolvedValue({
           id: "source-1",
           organizationId: "org-1",
           name: "Handbook",
@@ -54,29 +55,33 @@ describe("Ingestion happy path (upload → job → indexed chunks)", () => {
         }),
       },
       document: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockImplementation(async ({ data }) => ({
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockImplementation(async ({ data }) => ({
           ...document,
           ...data,
         })),
-        findUnique: jest.fn().mockImplementation(async () => ({
+        findUnique: vi.fn().mockImplementation(async () => ({
           ...document,
           content: "First section.\n\nSecond section about policies.",
           ingestionStatus: status,
           ingestionError: error,
         })),
-        update: jest.fn().mockImplementation(async ({ data }) => {
+        update: vi.fn().mockImplementation(async ({ data }) => {
           status = data.ingestionStatus;
           error = data.ingestionError;
-          return { ...document, ingestionStatus: status, ingestionError: error };
+          return {
+            ...document,
+            ingestionStatus: status,
+            ingestionError: error,
+          };
         }),
       },
       chunk: {
-        deleteMany: jest.fn().mockImplementation(async () => {
+        deleteMany: vi.fn().mockImplementation(async () => {
           storedChunks.length = 0;
           return { count: 0 };
         }),
-        createMany: jest.fn().mockImplementation(async ({ data }) => {
+        createMany: vi.fn().mockImplementation(async ({ data }) => {
           for (const row of data) {
             storedChunks.push({
               id: `chunk-${row.metadata.index}`,
@@ -88,19 +93,19 @@ describe("Ingestion happy path (upload → job → indexed chunks)", () => {
           }
           return { count: data.length };
         }),
-        findMany: jest.fn().mockImplementation(async () => storedChunks),
+        findMany: vi.fn().mockImplementation(async () => storedChunks),
       },
-      writeChunkEmbeddings: jest.fn().mockImplementation(async (rows) => {
+      writeChunkEmbeddings: vi.fn().mockImplementation(async (rows) => {
         embeddingsWritten = rows;
       }),
-      $transaction: jest.fn(),
+      $transaction: vi.fn(),
     };
-    prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
-      fn(prisma),
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: unknown) => unknown) => fn(prisma),
     );
 
     const queue = {
-      enqueueDocument: jest.fn().mockResolvedValue("document-1"),
+      enqueueDocument: vi.fn().mockResolvedValue("document-1"),
     };
 
     const moduleRef = await Test.createTestingModule({

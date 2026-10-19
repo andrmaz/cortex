@@ -18,7 +18,7 @@
   "scripts": {
     "build": "prisma generate && tsc",
     "check-types": "tsc --noEmit",
-    "test": "jest",
+    "test": "vitest run",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
@@ -35,11 +35,9 @@
   "devDependencies": {
     "@cortex/typescript-config": "workspace:*",
     "@types/invariant": "^2.2.37",
-    "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
-    "jest": "^30.4.2",
     "prisma": "^7.8.0",
-    "ts-jest": "^29.4.11",
-    "typescript": "5.9.2"
+    "typescript": "5.9.2",
+    "vitest": "^5.0.5"
   }
 }

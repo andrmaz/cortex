@@ -1,3 +1,12 @@
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  beforeAll,
+  afterAll,
+  vi,
+} from "vitest";
 import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import { APP_INTERCEPTOR } from "@nestjs/core";
@@ -18,11 +27,11 @@ class MockGoogleStrategy {
 }
 
 const mockPrisma = {
-  $connect: jest.fn().mockResolvedValue(undefined),
-  $disconnect: jest.fn().mockResolvedValue(undefined),
-  user: { findUnique: jest.fn() },
-  organization: { findUnique: jest.fn() },
-  userDepartment: { findFirst: jest.fn() },
+  $connect: vi.fn().mockResolvedValue(undefined),
+  $disconnect: vi.fn().mockResolvedValue(undefined),
+  user: { findUnique: vi.fn() },
+  organization: { findUnique: vi.fn() },
+  userDepartment: { findFirst: vi.fn() },
 };
 
 function issueToken(
@@ -74,7 +83,7 @@ describe("MCP Integration", () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("authenticated happy path", () => {

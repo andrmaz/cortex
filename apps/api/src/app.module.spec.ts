@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { Test } from "@nestjs/testing";
 import { AppModule } from "./app.module";
 import { MCPController } from "./mcp/mcp.controller";
@@ -12,11 +13,11 @@ class MockGoogleStrategy {
 
 /** Stub that replaces PrismaService so tests don't need a real database. */
 class MockPrismaService {
-  $connect = jest.fn().mockResolvedValue(undefined);
-  $disconnect = jest.fn().mockResolvedValue(undefined);
-  user = { findUnique: jest.fn(), create: jest.fn() };
-  organization = { findFirst: jest.fn() };
-  userDepartment = { findFirst: jest.fn().mockResolvedValue(null) };
+  $connect = vi.fn().mockResolvedValue(undefined);
+  $disconnect = vi.fn().mockResolvedValue(undefined);
+  user = { findUnique: vi.fn(), create: vi.fn() };
+  organization = { findFirst: vi.fn() };
+  userDepartment = { findFirst: vi.fn().mockResolvedValue(null) };
 }
 
 const mockJwtUser: AuthenticatedUser = {

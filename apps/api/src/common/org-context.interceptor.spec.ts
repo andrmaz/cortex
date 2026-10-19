@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { CallHandler, ExecutionContext } from "@nestjs/common";
 import {
   CanActivate,

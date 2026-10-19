@@ -1,5 +1,10 @@
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Test, type TestingModule } from "@nestjs/testing";
-import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from "@nestjs/common";
 import { UserDepartmentService } from "./user-department.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -24,23 +29,23 @@ const mockAssignmentRows = [
 ];
 
 const mockPrisma = {
-  user: { findUnique: jest.fn() },
-  department: { findMany: jest.fn() },
+  user: { findUnique: vi.fn() },
+  department: { findMany: vi.fn() },
   userDepartment: {
-    findMany: jest.fn(),
-    findFirst: jest.fn(),
-    updateMany: jest.fn(),
-    deleteMany: jest.fn(),
-    upsert: jest.fn(),
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    updateMany: vi.fn(),
+    deleteMany: vi.fn(),
+    upsert: vi.fn(),
   },
-  $transaction: jest.fn(),
+  $transaction: vi.fn(),
 };
 
 describe("UserDepartmentService", () => {
   let service: UserDepartmentService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockPrisma.$transaction.mockImplementation(async (ops: unknown[]) =>
       Promise.all(ops),
     );
@@ -73,9 +78,9 @@ describe("UserDepartmentService", () => {
     it("throws NotFoundException when the user does not exist", async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.findForUser("missing-user", adminOrgId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.findForUser("missing-user", adminOrgId),
+      ).rejects.toThrow(NotFoundException);
       expect(mockPrisma.userDepartment.findMany).not.toHaveBeenCalled();
     });
 
@@ -107,7 +112,9 @@ describe("UserDepartmentService", () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.assign("missing-user", adminOrgId, { departmentIds: ["dept-1"] }),
+        service.assign("missing-user", adminOrgId, {
+          departmentIds: ["dept-1"],
+        }),
       ).rejects.toThrow(NotFoundException);
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
@@ -133,13 +140,17 @@ describe("UserDepartmentService", () => {
       mockPrisma.department.findMany.mockResolvedValue([{ id: "dept-1" }]);
 
       await expect(
-        service.assign("user-1", adminOrgId, { departmentIds: ["dept-1", "dept-2"] }),
+        service.assign("user-1", adminOrgId, {
+          departmentIds: ["dept-1", "dept-2"],
+        }),
       ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
     it("scopes the department existence check to the user's organization", async () => {
-      await service.assign("user-1", adminOrgId, { departmentIds: ["dept-1", "dept-2"] });
+      await service.assign("user-1", adminOrgId, {
+        departmentIds: ["dept-1", "dept-2"],
+      });
 
       expect(mockPrisma.department.findMany).toHaveBeenCalledWith({
         where: {
@@ -190,7 +201,9 @@ describe("UserDepartmentService", () => {
         departmentId: "dept-2",
       });
 
-      await service.assign("user-1", adminOrgId, { departmentIds: ["dept-1", "dept-2"] });
+      await service.assign("user-1", adminOrgId, {
+        departmentIds: ["dept-1", "dept-2"],
+      });
 
       expect(mockPrisma.userDepartment.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -205,7 +218,9 @@ describe("UserDepartmentService", () => {
     it("defaults primary to the first departmentId when there is no existing primary", async () => {
       mockPrisma.userDepartment.findFirst.mockResolvedValue(null);
 
-      await service.assign("user-1", adminOrgId, { departmentIds: ["dept-1", "dept-2"] });
+      await service.assign("user-1", adminOrgId, {
+        departmentIds: ["dept-1", "dept-2"],
+      });
 
       expect(mockPrisma.userDepartment.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -239,7 +254,9 @@ describe("UserDepartmentService", () => {
     });
 
     it("runs the update, delete, and upserts inside a single transaction", async () => {
-      await service.assign("user-1", adminOrgId, { departmentIds: ["dept-1", "dept-2"] });
+      await service.assign("user-1", adminOrgId, {
+        departmentIds: ["dept-1", "dept-2"],
+      });
 
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
       const ops = mockPrisma.$transaction.mock.calls[0]?.[0] as unknown[];

@@ -1,3 +1,12 @@
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  beforeAll,
+  afterAll,
+  vi,
+} from "vitest";
 import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
@@ -23,13 +32,13 @@ const mockOrg = {
 };
 
 const mockPrisma = {
-  $connect: jest.fn().mockResolvedValue(undefined),
-  $disconnect: jest.fn().mockResolvedValue(undefined),
-  user: { findUnique: jest.fn() },
+  $connect: vi.fn().mockResolvedValue(undefined),
+  $disconnect: vi.fn().mockResolvedValue(undefined),
+  user: { findUnique: vi.fn() },
   organization: {
-    findUnique: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
   },
 };
 
@@ -76,7 +85,7 @@ describe("Admin Organizations Integration", () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   // ---------------------------------------------------------------------------

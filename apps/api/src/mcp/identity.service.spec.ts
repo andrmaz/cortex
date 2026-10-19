@@ -1,3 +1,11 @@
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+} from "vitest";
 import { fromAny } from "@total-typescript/shoehorn";
 import { IdentityService } from "./identity.service";
 
@@ -5,7 +13,7 @@ import { IdentityService } from "./identity.service";
 function makeMockPrisma() {
   return {
     userDepartment: {
-      findFirst: jest.fn(),
+      findFirst: vi.fn(),
     },
   };
 }
@@ -20,7 +28,7 @@ describe("IdentityService", () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("resolveScope", () => {
@@ -131,7 +139,12 @@ describe("IdentityService", () => {
 
     it("issues separate db queries for separate resolveScope calls", async () => {
       prisma.userDepartment.findFirst
-        .mockResolvedValueOnce({ id: "ud_a", userId: "user_a", departmentId: "dept_a", isPrimary: true })
+        .mockResolvedValueOnce({
+          id: "ud_a",
+          userId: "user_a",
+          departmentId: "dept_a",
+          isPrimary: true,
+        })
         .mockResolvedValueOnce(null);
 
       const [resultA, resultB] = await Promise.all([
@@ -154,8 +167,18 @@ describe("IdentityService", () => {
 
     it("different users with the same organizationId get independent dept lookups", async () => {
       prisma.userDepartment.findFirst
-        .mockResolvedValueOnce({ id: "ud_1", userId: "user_1", departmentId: "dept_for_user1", isPrimary: true })
-        .mockResolvedValueOnce({ id: "ud_2", userId: "user_2", departmentId: "dept_for_user2", isPrimary: true });
+        .mockResolvedValueOnce({
+          id: "ud_1",
+          userId: "user_1",
+          departmentId: "dept_for_user1",
+          isPrimary: true,
+        })
+        .mockResolvedValueOnce({
+          id: "ud_2",
+          userId: "user_2",
+          departmentId: "dept_for_user2",
+          isPrimary: true,
+        });
 
       const result1 = await service.resolveScope("user_1", "shared_org");
       const result2 = await service.resolveScope("user_2", "shared_org");

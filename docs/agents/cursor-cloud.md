@@ -28,7 +28,7 @@ the non-obvious caveats.
 
 ## Running the API end-to-end (known gaps as committed)
 
-The API builds, type-checks, lints, and its 53 jest tests pass, but it cannot be booted by the committed scripts as-is:
+The API builds, type-checks, lints, and its 53 Vitest tests pass, but it cannot be booted by the committed scripts as-is:
 
 - [`../../apps/api/tsconfig.json`](../../apps/api/tsconfig.json) `paths` map `db/client` to a `.ts` source file; `nest build`/`nest start` emit a require to that `.ts`, so `node dist/...` and `nest start --watch` fail (this is the "dev/build not stable yet" note in [`commands.md`](./commands.md)). The runnable compiled entry is `apps/api/dist/apps/api/src/main.js`, not `dist/main.js`.
 - The Prisma 7 client needs a driver adapter (`@prisma/adapter-pg`), but `PrismaService` constructs `PrismaClient()` with no adapter, so it throws at boot.

@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { UnauthorizedException } from "@nestjs/common";
 import { JwtStrategy } from "./jwt.strategy";
 import type { JwtPayload } from "../auth.types";
