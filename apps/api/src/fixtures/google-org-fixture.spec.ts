@@ -6,7 +6,7 @@ import {
 import type { PrismaService } from "../prisma/prisma.service";
 
 function makePrisma(users: { byEmail?: object | null; bySub?: object | null }) {
-  return {
+  const client = {
     organization: { upsert: jest.fn().mockResolvedValue({ id: "org-1" }) },
     user: {
       findUnique: jest
@@ -18,7 +18,12 @@ function makePrisma(users: { byEmail?: object | null; bySub?: object | null }) {
     },
     department: { upsert: jest.fn().mockResolvedValue({ id: "dept-1" }) },
     userDepartment: { upsert: jest.fn().mockResolvedValue({}) },
+    $transaction: jest.fn(),
   };
+  client.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
+    fn(client),
+  );
+  return client;
 }
 
 const fixtureUser = {

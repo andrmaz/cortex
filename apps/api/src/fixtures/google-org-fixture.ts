@@ -13,10 +13,7 @@ export const GOOGLE_ORG_FIXTURE = {
   departmentName: "QA",
 } as const;
 
-type FixtureClient = Pick<
-  PrismaService,
-  "organization" | "user" | "department" | "userDepartment"
->;
+type FixtureClient = Pick<PrismaService, "user" | "$transaction">;
 
 export class FixtureConflictError extends Error {}
 
@@ -47,55 +44,63 @@ export async function seedGoogleOrgFixture(
       );
     }
 
-    const organization = await prisma.organization.upsert({
-      where: { name: GOOGLE_ORG_FIXTURE.organizationName },
-      update: {},
-      create: { name: GOOGLE_ORG_FIXTURE.organizationName },
-    });
+    return prisma.$transaction(async (tx) => {
+      const organization = await tx.organization.upsert({
+        where: { name: GOOGLE_ORG_FIXTURE.organizationName },
+        update: {},
+        create: { name: GOOGLE_ORG_FIXTURE.organizationName },
+      });
 
-    if (existingByEmail && existingByEmail.organizationId !== organization.id) {
-      throw new FixtureConflictError(
-        "Fixture user belongs to a different organization",
-      );
-    }
+      if (
+        existingByEmail &&
+        existingByEmail.organizationId !== organization.id
+      ) {
+        throw new FixtureConflictError(
+          "Fixture user belongs to a different organization",
+        );
+      }
 
-    const admin = await prisma.user.upsert({
-      where: { email: GOOGLE_ORG_FIXTURE.adminEmail },
-      update: { role: "admin" },
-      create: {
-        email: GOOGLE_ORG_FIXTURE.adminEmail,
-        googleSub: GOOGLE_ORG_FIXTURE.adminGoogleSub,
-        role: "admin",
-        organizationId: organization.id,
-      },
-    });
-
-    const department = await prisma.department.upsert({
-      where: {
-        organizationId_name: {
+      const admin = await tx.user.upsert({
+        where: { email: GOOGLE_ORG_FIXTURE.adminEmail },
+        update: { role: "admin" },
+        create: {
+          email: GOOGLE_ORG_FIXTURE.adminEmail,
+          googleSub: GOOGLE_ORG_FIXTURE.adminGoogleSub,
+          role: "admin",
           organizationId: organization.id,
-          name: GOOGLE_ORG_FIXTURE.departmentName,
         },
-      },
-      update: {},
-      create: {
-        name: GOOGLE_ORG_FIXTURE.departmentName,
-        organizationId: organization.id,
-      },
-    });
+      });
 
-    await prisma.userDepartment.upsert({
-      where: {
-        userId_departmentId: { userId: admin.id, departmentId: department.id },
-      },
-      update: { isPrimary: true },
-      create: {
-        userId: admin.id,
-        departmentId: department.id,
-        isPrimary: true,
-      },
-    });
+      const department = await tx.department.upsert({
+        where: {
+          organizationId_name: {
+            organizationId: organization.id,
+            name: GOOGLE_ORG_FIXTURE.departmentName,
+          },
+        },
+        update: {},
+        create: {
+          name: GOOGLE_ORG_FIXTURE.departmentName,
+          organizationId: organization.id,
+        },
+      });
 
-    return { organizationId: organization.id, adminUserId: admin.id };
+      await tx.userDepartment.upsert({
+        where: {
+          userId_departmentId: {
+            userId: admin.id,
+            departmentId: department.id,
+          },
+        },
+        update: { isPrimary: true },
+        create: {
+          userId: admin.id,
+          departmentId: department.id,
+          isPrimary: true,
+        },
+      });
+
+      return { organizationId: organization.id, adminUserId: admin.id };
+    });
   });
 }
