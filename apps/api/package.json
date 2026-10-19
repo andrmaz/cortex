@@ -6,7 +6,7 @@
   "scripts": {
     "build": "nest build",
     "check-types": "tsc --noEmit",
-    "seed:fixture": "nest build && node dist/fixtures/seed-fixture.js",
+    "seed:fixture": "nest build && node dist/apps/api/src/fixtures/seed-fixture.js",
     "dev": "nest start --watch",
     "start": "nest start",
     "start:prod": "node dist/main",

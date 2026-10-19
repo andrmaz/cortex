@@ -85,6 +85,15 @@ export async function seedGoogleOrgFixture(
         },
       });
 
+      await tx.userDepartment.updateMany({
+        where: {
+          userId: admin.id,
+          isPrimary: true,
+          NOT: { departmentId: department.id },
+        },
+        data: { isPrimary: false },
+      });
+
       await tx.userDepartment.upsert({
         where: {
           userId_departmentId: {

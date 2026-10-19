@@ -17,7 +17,10 @@ function makePrisma(users: { byEmail?: object | null; bySub?: object | null }) {
       upsert: jest.fn().mockResolvedValue({ id: "user-1" }),
     },
     department: { upsert: jest.fn().mockResolvedValue({ id: "dept-1" }) },
-    userDepartment: { upsert: jest.fn().mockResolvedValue({}) },
+    userDepartment: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      upsert: jest.fn().mockResolvedValue({}),
+    },
     $transaction: jest.fn(),
   };
   client.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
@@ -53,6 +56,23 @@ describe("seedGoogleOrgFixture", () => {
         create: expect.objectContaining({ isPrimary: true }),
       }),
     );
+  });
+
+  it("clears other primary assignments before upserting the fixture one", async () => {
+    const prisma = makePrisma({ byEmail: fixtureUser, bySub: fixtureUser });
+    await seedGoogleOrgFixture(prisma as unknown as PrismaService);
+
+    expect(prisma.userDepartment.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: "user-1",
+        isPrimary: true,
+        NOT: { departmentId: "dept-1" },
+      },
+      data: { isPrimary: false },
+    });
+    expect(
+      prisma.userDepartment.updateMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(prisma.userDepartment.upsert.mock.invocationCallOrder[0]);
   });
 
   it("is idempotent for an existing fixture user", async () => {
