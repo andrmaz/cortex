@@ -1,5 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": ["apps/api/src/__mocks__/db-client.mock.ts"],
   "ignorePatterns": ["**/*.generated.ts", "**/*.d.ts"],
   "workspaces": {
     "patterns": ["apps/*", "packages/*"]
