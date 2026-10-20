@@ -3,8 +3,9 @@ import { vi } from "vitest";
  * Jest manual mock for the Prisma generated client (`db/client`) and for the
  * `db` package entrypoint (see `vi.config.js` — both specifiers map here).
  *
- * Used in all unit and integration tests so that module resolution doesn't
- * attempt to load the ESM-only generated Prisma files.
+ * Used in the default API suite so that module resolution doesn't attempt
+ * to load the ESM-only generated Prisma files. The PostgreSQL suite uses a
+ * separate Vitest config that loads the real database client.
  *
  * `runWithOrgContext`/`runWithoutOrgScope`/`getOrgContext` below are a
  * deliberate, self-contained duplicate of `db`'s `org-scope/context.ts` (not

@@ -1,5 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { runWithOrgContext } from "db";
+import {
+  getOrgContext,
+  isUnscopedContext,
+  OrgScopeViolationError,
+  runWithOrgContext,
+} from "db";
 import {
   EMBEDDING_PROVIDER,
   EmbeddingProviderError,
@@ -35,6 +40,15 @@ export class RetrievalService {
     organizationId: string,
     topK: number = DEFAULT_TOP_K,
   ): Promise<RetrievedChunk[]> {
+    const context = getOrgContext();
+    if (
+      context &&
+      !isUnscopedContext(context) &&
+      context.organizationId !== organizationId
+    ) {
+      throw new OrgScopeViolationError("Chunk", "search");
+    }
+
     const text = query.trim();
     if (text.length === 0) {
       throw new Error("query must not be empty");

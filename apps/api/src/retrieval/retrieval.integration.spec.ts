@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { getOrgContext } from "db";
+import { getOrgContext, OrgScopeViolationError, runWithOrgContext } from "db";
 import { DeterministicEmbeddingProvider } from "../ingestion/embedding.provider";
 import type {
   ChunkSimilarityRow,
@@ -60,6 +60,34 @@ function makeFakePrisma(store: StoredChunk[]) {
 
 describe("RetrievalService org isolation", () => {
   const embeddings = new DeterministicEmbeddingProvider();
+
+  it("rejects a conflicting active org before embedding or searching", async () => {
+    const { prisma, search } = makeFakePrisma([]);
+    const embedMany = vi.fn().mockResolvedValue([[1]]);
+    const service = new RetrievalService(prisma, { embedMany });
+
+    await runWithOrgContext("org-a", async () => {
+      await expect(service.search("q", "org-b")).rejects.toThrow(
+        OrgScopeViolationError,
+      );
+      expect(getOrgContext()).toEqual({ organizationId: "org-a" });
+    });
+
+    expect(embedMany).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("preserves a matching active org across retrieval", async () => {
+    const { prisma, search } = makeFakePrisma([]);
+    const service = new RetrievalService(prisma, embeddings);
+
+    await runWithOrgContext("org-a", async () => {
+      await expect(service.search("q", "org-a")).resolves.toEqual([]);
+      expect(getOrgContext()).toEqual({ organizationId: "org-a" });
+    });
+
+    expect(search).toHaveBeenCalledOnce();
+  });
 
   async function seed(): Promise<StoredChunk[]> {
     const texts = ["Refund policy: 30 days.", "Unrelated onboarding text."];
