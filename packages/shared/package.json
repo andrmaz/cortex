@@ -16,7 +16,7 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
-    "test": "jest"
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -24,10 +24,8 @@
   "devDependencies": {
     "@cortex/typescript-config": "workspace:*",
     "@total-typescript/shoehorn": "^0.1.2",
-    "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
-    "jest": "^30.4.2",
-    "ts-jest": "^29.4.11",
-    "typescript": "5.9.2"
+    "typescript": "5.9.2",
+    "vitest": "^5.0.5"
   }
 }

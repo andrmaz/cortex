@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { UnauthorizedException, BadRequestException } from "@nestjs/common";
 import { UserService } from "./user.service";
@@ -17,15 +18,15 @@ const mockOrg = { id: "org-1", name: "acme.com" };
 
 const mockPrisma = {
   user: {
-    findUnique: jest.fn(),
-    create: jest.fn(),
-    upsert: jest.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    upsert: vi.fn(),
   },
   organization: {
-    findUnique: jest.fn(),
+    findUnique: vi.fn(),
   },
   userDepartment: {
-    findMany: jest.fn(),
+    findMany: vi.fn(),
   },
 };
 
@@ -33,7 +34,7 @@ describe("UserService", () => {
   let service: UserService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

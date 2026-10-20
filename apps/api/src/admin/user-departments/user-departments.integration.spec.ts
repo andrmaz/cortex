@@ -1,3 +1,12 @@
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  beforeAll,
+  afterAll,
+  vi,
+} from "vitest";
 import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
@@ -30,18 +39,18 @@ const mockAssignmentRows = [
 ];
 
 const mockPrisma = {
-  $connect: jest.fn().mockResolvedValue(undefined),
-  $disconnect: jest.fn().mockResolvedValue(undefined),
-  $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops)),
-  user: { findUnique: jest.fn() },
-  organization: { findUnique: jest.fn() },
-  department: { findMany: jest.fn() },
+  $connect: vi.fn().mockResolvedValue(undefined),
+  $disconnect: vi.fn().mockResolvedValue(undefined),
+  $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
+  user: { findUnique: vi.fn() },
+  organization: { findUnique: vi.fn() },
+  department: { findMany: vi.fn() },
   userDepartment: {
-    findMany: jest.fn(),
-    findFirst: jest.fn(),
-    updateMany: jest.fn(),
-    deleteMany: jest.fn(),
-    upsert: jest.fn(),
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    updateMany: vi.fn(),
+    deleteMany: vi.fn(),
+    upsert: vi.fn(),
   },
 };
 
@@ -84,7 +93,7 @@ describe("Admin UserDepartments Integration", () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockPrisma.$transaction.mockImplementation(async (ops: unknown[]) =>
       Promise.all(ops),
     );

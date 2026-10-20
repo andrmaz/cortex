@@ -1,8 +1,6 @@
+import { describe, it, expect } from "vitest";
 import { computeScopedArgs, getScopeConfig } from "./scope-args.js";
-import {
-  OrgScopeViolationError,
-  UnknownOrgScopeModelError,
-} from "./errors.js";
+import { OrgScopeViolationError, UnknownOrgScopeModelError } from "./errors.js";
 
 const ORG_ID = "org-1";
 
@@ -166,18 +164,21 @@ describe("computeScopedArgs — direct scope (User, Department, ...)", () => {
     ["Chunk", "update", "document", { connect: { id: "foreign-doc" } }],
     ["Chunk", "update", "organization", { connect: { id: "other-org" } }],
     ["Chunk", "update", "document", { disconnect: true }],
-  ])("rejects %s.%s writing %s (cross-org reassignment)", (model, operation, key, value) => {
-    expect(() =>
-      computeScopedArgs(
-        {
-          model,
-          operation,
-          args: { where: { id: "x" }, data: { [key]: value } },
-        },
-        ORG_ID,
-      ),
-    ).toThrow(OrgScopeViolationError);
-  });
+  ])(
+    "rejects %s.%s writing %s (cross-org reassignment)",
+    (model, operation, key, value) => {
+      expect(() =>
+        computeScopedArgs(
+          {
+            model,
+            operation,
+            args: { where: { id: "x" }, data: { [key]: value } },
+          },
+          ORG_ID,
+        ),
+      ).toThrow(OrgScopeViolationError);
+    },
+  );
 
   it.each([
     ["Document", "source", { connect: { id: "foreign-source" } }],

@@ -15,7 +15,7 @@ import {
 /**
  * BullMQ consumer for document-ingestion jobs.
  *
- * Disabled automatically under Jest (`JEST_WORKER_ID`) and when
+ * Disabled automatically under Vitest (`VITEST_WORKER_ID`) and when
  * `INGESTION_WORKER_ENABLED=false`, so unit/integration suites do not open
  * Redis connections.
  */
@@ -66,7 +66,7 @@ export class IngestionWorker implements OnModuleInit, OnModuleDestroy {
 }
 
 function shouldStartWorker(): boolean {
-  if (process.env["JEST_WORKER_ID"] !== undefined) {
+  if (process.env["VITEST_WORKER_ID"] !== undefined) {
     return false;
   }
   return process.env["INGESTION_WORKER_ENABLED"] !== "false";

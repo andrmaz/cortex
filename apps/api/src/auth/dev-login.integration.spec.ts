@@ -1,3 +1,12 @@
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  beforeAll,
+  afterAll,
+  vi,
+} from "vitest";
 import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
@@ -10,9 +19,9 @@ class MockGoogleStrategy {
 }
 
 const mockPrisma = {
-  $connect: jest.fn().mockResolvedValue(undefined),
-  $disconnect: jest.fn().mockResolvedValue(undefined),
-  user: { findUnique: jest.fn() },
+  $connect: vi.fn().mockResolvedValue(undefined),
+  $disconnect: vi.fn().mockResolvedValue(undefined),
+  user: { findUnique: vi.fn() },
 };
 
 describe("GET /auth/dev-login", () => {
@@ -38,7 +47,7 @@ describe("GET /auth/dev-login", () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.env["CORTEX_DEV_LOGIN"] = "true";
     process.env["NODE_ENV"] = "test";
   });

@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from "vitest";
 import { fromPartial } from "@total-typescript/shoehorn";
 import type { Document } from "db";
 import { PrismaService } from "../prisma/prisma.service";
@@ -32,16 +33,16 @@ const document = fromPartial<Document>({
 function createPrisma() {
   const prisma = {
     document: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
     },
     chunk: {
-      deleteMany: jest.fn(),
-      createMany: jest.fn(),
-      findMany: jest.fn(),
+      deleteMany: vi.fn(),
+      createMany: vi.fn(),
+      findMany: vi.fn(),
     },
-    writeChunkEmbeddings: jest.fn(),
-    $transaction: jest.fn(),
+    writeChunkEmbeddings: vi.fn(),
+    $transaction: vi.fn(),
   };
   prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
     fn(prisma),
@@ -67,10 +68,12 @@ describe("DocumentIngestionService", () => {
     prisma.writeChunkEmbeddings.mockResolvedValue(undefined);
 
     const embeddingProvider: EmbeddingProvider = {
-      embedMany: jest.fn().mockResolvedValue([
-        Array.from({ length: 1536 }, (_, i) => i * 0.001),
-        Array.from({ length: 1536 }, (_, i) => i * 0.002),
-      ]),
+      embedMany: vi
+        .fn()
+        .mockResolvedValue([
+          Array.from({ length: 1536 }, (_, i) => i * 0.001),
+          Array.from({ length: 1536 }, (_, i) => i * 0.002),
+        ]),
     };
 
     const service = new DocumentIngestionService(
@@ -107,18 +110,21 @@ describe("DocumentIngestionService", () => {
       "Alpha paragraph.",
       "Beta paragraph about Cortex retrieval.",
     ]);
-    expect(prisma.writeChunkEmbeddings).toHaveBeenCalledWith([
-      {
-        chunkId: "chunk-1",
-        organizationId: "org-1",
-        embedding: expect.any(Array),
-      },
-      {
-        chunkId: "chunk-2",
-        organizationId: "org-1",
-        embedding: expect.any(Array),
-      },
-    ], prisma);
+    expect(prisma.writeChunkEmbeddings).toHaveBeenCalledWith(
+      [
+        {
+          chunkId: "chunk-1",
+          organizationId: "org-1",
+          embedding: expect.any(Array),
+        },
+        {
+          chunkId: "chunk-2",
+          organizationId: "org-1",
+          embedding: expect.any(Array),
+        },
+      ],
+      prisma,
+    );
     expect(prisma.document.update).toHaveBeenLastCalledWith({
       where: { id: job.documentId },
       data: { ingestionStatus: "completed", ingestionError: null },
@@ -136,9 +142,11 @@ describe("DocumentIngestionService", () => {
     ]);
 
     const embeddingProvider: EmbeddingProvider = {
-      embedMany: jest
+      embedMany: vi
         .fn()
-        .mockRejectedValue(new EmbeddingProviderError("OpenAI 429: rate limited")),
+        .mockRejectedValue(
+          new EmbeddingProviderError("OpenAI 429: rate limited"),
+        ),
     };
 
     const service = new DocumentIngestionService(
@@ -165,7 +173,7 @@ describe("DocumentIngestionService", () => {
     prisma.document.findUnique.mockResolvedValue({ ...document, content: "" });
     prisma.document.update.mockResolvedValue(document);
     prisma.chunk.deleteMany.mockResolvedValue({ count: 3 });
-    const embeddingProvider: EmbeddingProvider = { embedMany: jest.fn() };
+    const embeddingProvider: EmbeddingProvider = { embedMany: vi.fn() };
 
     const service = new DocumentIngestionService(
       prisma as unknown as PrismaService,
@@ -189,7 +197,7 @@ describe("DocumentIngestionService", () => {
       .mockResolvedValueOnce(document)
       .mockRejectedValueOnce(new Error("db down"));
     const embeddingProvider: EmbeddingProvider = {
-      embedMany: jest
+      embedMany: vi
         .fn()
         .mockRejectedValue(new EmbeddingProviderError("rate limited")),
     };
@@ -210,7 +218,7 @@ describe("DocumentIngestionService", () => {
     ).join("\n\n");
     prisma.document.findUnique.mockResolvedValue({ ...document, content });
     prisma.document.update.mockResolvedValue(document);
-    const embeddingProvider: EmbeddingProvider = { embedMany: jest.fn() };
+    const embeddingProvider: EmbeddingProvider = { embedMany: vi.fn() };
 
     const service = new DocumentIngestionService(
       prisma as unknown as PrismaService,

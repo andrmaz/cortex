@@ -24,6 +24,5 @@ Real Google login is unavailable to QA. Seed a fake org and sign in:
 
 ## Current repo reality
 
-- API test script is currently a placeholder and intentionally fails.
-- DB package test script is currently a placeholder and intentionally fails.
-- For API/DB changes today, manual verification notes are required until real tests are added.
+- API, DB, and shared packages use Vitest (pnpm test, or `pnpm --filter <pkg> test`); specs are `*.spec.ts` next to source.
+- Use `vi` from `vitest` for mocks; import test APIs explicitly (no globals).

@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { OrganizationService } from "./organization.service";
@@ -14,9 +15,9 @@ const mockOrg = {
 
 const mockPrisma = {
   organization: {
-    findUnique: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
   },
 };
 
@@ -24,7 +25,7 @@ describe("OrganizationService", () => {
   let service: OrganizationService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

@@ -1,6 +1,7 @@
+import { vi } from "vitest";
 /**
  * Jest manual mock for the Prisma generated client (`db/client`) and for the
- * `db` package entrypoint (see `jest.config.js` — both specifiers map here).
+ * `db` package entrypoint (see `vi.config.js` — both specifiers map here).
  *
  * Used in all unit and integration tests so that module resolution doesn't
  * attempt to load the ESM-only generated Prisma files.
@@ -79,33 +80,33 @@ export function createOrgScopedClient<T>(baseClient: T): T {
 }
 
 export const mockPrismaClient = {
-  $connect: jest.fn().mockResolvedValue(undefined),
-  $disconnect: jest.fn().mockResolvedValue(undefined),
-  $transaction: jest.fn(),
+  $connect: vi.fn().mockResolvedValue(undefined),
+  $disconnect: vi.fn().mockResolvedValue(undefined),
+  $transaction: vi.fn(),
   user: {
-    findUnique: jest.fn(),
-    findMany: jest.fn(),
-    create: jest.fn(),
-    upsert: jest.fn(),
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    upsert: vi.fn(),
   },
   organization: {
-    findUnique: jest.fn(),
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
   },
   department: {
-    findUnique: jest.fn(),
-    findMany: jest.fn(),
-    create: jest.fn(),
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
   },
   userDepartment: {
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-    updateMany: jest.fn(),
-    deleteMany: jest.fn(),
-    upsert: jest.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    updateMany: vi.fn(),
+    deleteMany: vi.fn(),
+    upsert: vi.fn(),
   },
 };
 

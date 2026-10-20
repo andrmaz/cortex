@@ -1,7 +1,8 @@
+import { describe, it, expect, vi } from "vitest";
 import { OpenAIEmbeddingProvider } from "./embedding.provider";
 
 function okFetch() {
-  return jest.fn((_url: string, init: { body: string }) => {
+  return vi.fn((_url: string, init: { body: string }) => {
     const { input } = JSON.parse(init.body) as { input: string[] };
     return Promise.resolve(
       new Response(
@@ -63,7 +64,9 @@ describe("OpenAIEmbeddingProvider", () => {
     const texts = Array.from({ length: 600 }, (_, i) => `t${i}`);
     const vectors = await provider.embedMany(texts);
 
-    expect(bodies(fetchMock).map((b) => b.input.length)).toEqual([256, 256, 88]);
+    expect(bodies(fetchMock).map((b) => b.input.length)).toEqual([
+      256, 256, 88,
+    ]);
     expect(bodies(fetchMock).flatMap((b) => b.input)).toEqual(texts);
     expect(vectors).toHaveLength(600);
   });
@@ -94,12 +97,16 @@ describe("OpenAIEmbeddingProvider", () => {
   });
 
   it("surfaces sanitized errors", async () => {
-    const fetchMock = jest.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ error: { code: "rate_limit", message: "secret text" } }),
-        { status: 429 },
-      ),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: { code: "rate_limit", message: "secret text" },
+          }),
+          { status: 429 },
+        ),
+      );
     const provider = new OpenAIEmbeddingProvider(
       "key",
       "text-embedding-3-small",

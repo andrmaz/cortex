@@ -1,10 +1,11 @@
+import { describe, it, expect } from "vitest";
 import { chunkDocumentContent } from "./text-chunker";
 
 describe("chunkDocumentContent", () => {
   it("splits blank-line paragraphs into Chunk texts", () => {
-    expect(
-      chunkDocumentContent("Alpha paragraph.\n\nBeta paragraph."),
-    ).toEqual(["Alpha paragraph.", "Beta paragraph."]);
+    expect(chunkDocumentContent("Alpha paragraph.\n\nBeta paragraph.")).toEqual(
+      ["Alpha paragraph.", "Beta paragraph."],
+    );
   });
 
   it("hard-wraps oversized paragraphs without dropping text", () => {
@@ -14,9 +15,9 @@ describe("chunkDocumentContent", () => {
     expect(chunks.length).toBeGreaterThan(1);
     expect(chunks.every((chunk) => chunk.length <= 100)).toBe(true);
     expect(chunks.join("")).toContain("word");
-    expect(chunks.reduce((sum, chunk) => sum + chunk.length, 0)).toBeGreaterThan(
-      long.length / 2,
-    );
+    expect(
+      chunks.reduce((sum, chunk) => sum + chunk.length, 0),
+    ).toBeGreaterThan(long.length / 2);
   });
 
   it("returns an empty list for blank content", () => {

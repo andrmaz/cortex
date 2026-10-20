@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import type { MCPRequest } from "./types";
 
 // Runtime helper: create a valid MCPRequest-shaped object and validate its structure

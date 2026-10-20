@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { AdminUserService } from "./admin-user.service";
@@ -16,15 +17,15 @@ const mockUser = {
 };
 
 const mockPrisma = {
-  organization: { findUnique: jest.fn() },
-  user: { findMany: jest.fn() },
+  organization: { findUnique: vi.fn() },
+  user: { findMany: vi.fn() },
 };
 
 describe("AdminUserService", () => {
   let service: AdminUserService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

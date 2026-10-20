@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { Test } from "@nestjs/testing";
 import { MCPModule } from "./mcp.module";
 import { MCPController } from "./mcp.controller";
@@ -12,11 +13,11 @@ class MockGoogleStrategy {
 
 /** Stub so tests don't require a real database connection. */
 const mockPrismaService = {
-  $connect: jest.fn().mockResolvedValue(undefined),
-  $disconnect: jest.fn().mockResolvedValue(undefined),
-  user: { findUnique: jest.fn() },
-  organization: { findUnique: jest.fn() },
-  userDepartment: { findFirst: jest.fn() },
+  $connect: vi.fn().mockResolvedValue(undefined),
+  $disconnect: vi.fn().mockResolvedValue(undefined),
+  user: { findUnique: vi.fn() },
+  organization: { findUnique: vi.fn() },
+  userDepartment: { findFirst: vi.fn() },
 };
 
 describe("MCPModule", () => {

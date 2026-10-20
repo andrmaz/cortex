@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
 import { Queue } from "bullmq";
 import {
   FAILED_JOB_RETENTION_AGE_SECONDS,
@@ -8,13 +9,17 @@ import {
   type IngestDocumentJobData,
 } from "./ingestion-queue.service";
 
-const add = jest.fn();
-const close = jest.fn();
-const getJob = jest.fn();
-const getJobs = jest.fn();
+const { add, close, getJob, getJobs } = vi.hoisted(() => ({
+  add: vi.fn(),
+  close: vi.fn(),
+  getJob: vi.fn(),
+  getJobs: vi.fn(),
+}));
 
-jest.mock("bullmq", () => ({
-  Queue: jest.fn().mockImplementation(() => ({ add, close, getJob, getJobs })),
+vi.mock("bullmq", () => ({
+  Queue: vi.fn().mockImplementation(function () {
+    return { add, close, getJob, getJobs };
+  }),
 }));
 
 const data: IngestDocumentJobData = {
@@ -29,7 +34,7 @@ describe("IngestionQueueService", () => {
   const previousRedisUrl = process.env["REDIS_URL"];
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.env["REDIS_URL"] = "redis://queue.example:6379";
   });
 

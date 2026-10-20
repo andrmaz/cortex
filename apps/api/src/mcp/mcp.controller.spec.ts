@@ -1,3 +1,12 @@
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+  type Mocked,
+} from "vitest";
 import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { Request } from "express";
 import { MCPController } from "./mcp.controller";
@@ -19,11 +28,11 @@ function makeReq(user: AuthenticatedUser = mockUser): RequestWithJwtUser {
 
 describe("MCPController", () => {
   let controller: MCPController;
-  let identityService: jest.Mocked<IdentityService>;
+  let identityService: Mocked<IdentityService>;
 
   beforeEach(() => {
-    identityService = fromPartial<jest.Mocked<IdentityService>>({
-      resolveScope: jest.fn().mockResolvedValue({
+    identityService = fromPartial<Mocked<IdentityService>>({
+      resolveScope: vi.fn<IdentityService["resolveScope"]>().mockResolvedValue({
         organizationId: "org_456",
         departmentId: "dept_789",
       }),
@@ -33,7 +42,7 @@ describe("MCPController", () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("handleMCP", () => {
@@ -50,10 +59,7 @@ describe("MCPController", () => {
     });
 
     it("delegates identity resolution to IdentityService with userId and organizationId from req.user", async () => {
-      await controller.handleMCP(
-        { query: "test" },
-        makeReq(mockUser),
-      );
+      await controller.handleMCP({ query: "test" }, makeReq(mockUser));
 
       expect(identityService.resolveScope).toHaveBeenCalledWith(
         mockUser.id,
@@ -84,10 +90,7 @@ describe("MCPController", () => {
         departmentId: null,
       });
 
-      const result = await controller.handleMCP(
-        { query: "test" },
-        makeReq(),
-      );
+      const result = await controller.handleMCP({ query: "test" }, makeReq());
 
       expect(result.scope.departmentId).toBeNull();
     });
@@ -113,10 +116,7 @@ describe("MCPController", () => {
     });
 
     it("returns the stub context array", async () => {
-      const result = await controller.handleMCP(
-        { query: "test" },
-        makeReq(),
-      );
+      const result = await controller.handleMCP({ query: "test" }, makeReq());
 
       expect(result.context).toEqual([
         "Company uses modular monolith architecture",
@@ -125,10 +125,7 @@ describe("MCPController", () => {
     });
 
     it("returns the stub policy with TypeScript and clean architecture rules", async () => {
-      const result = await controller.handleMCP(
-        { query: "test" },
-        makeReq(),
-      );
+      const result = await controller.handleMCP({ query: "test" }, makeReq());
 
       expect(result.policy).toEqual({
         rules: ["Use TypeScript", "Follow clean architecture"],
@@ -136,10 +133,7 @@ describe("MCPController", () => {
     });
 
     it("returns a Promise (async method)", () => {
-      const returnValue = controller.handleMCP(
-        { query: "test" },
-        makeReq(),
-      );
+      const returnValue = controller.handleMCP({ query: "test" }, makeReq());
 
       expect(returnValue).toBeInstanceOf(Promise);
     });

@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -40,7 +41,9 @@ describe("composite org foreign keys for direct-scoped models", () => {
       migration.indexOf("-- Rollback"),
       migration.indexOf("-- Data recovery"),
     );
-    const dropFk = rollback.indexOf("DROP CONSTRAINT IF EXISTS chunks_document");
+    const dropFk = rollback.indexOf(
+      "DROP CONSTRAINT IF EXISTS chunks_document",
+    );
     const dropIndex = rollback.indexOf("DROP INDEX IF EXISTS documents_id");
     expect(dropFk).toBeGreaterThan(-1);
     expect(dropIndex).toBeGreaterThan(dropFk);
@@ -53,4 +56,3 @@ describe("composite org foreign keys for direct-scoped models", () => {
     );
   });
 });
-

@@ -1,3 +1,12 @@
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  beforeAll,
+  afterAll,
+  vi,
+} from "vitest";
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import * as jwt from "jsonwebtoken";
@@ -34,32 +43,32 @@ class MockGoogleStrategy {
 }
 
 const prisma = {
-  $connect: jest.fn().mockResolvedValue(undefined),
-  $disconnect: jest.fn().mockResolvedValue(undefined),
-  user: { findUnique: jest.fn() },
+  $connect: vi.fn().mockResolvedValue(undefined),
+  $disconnect: vi.fn().mockResolvedValue(undefined),
+  user: { findUnique: vi.fn() },
   organization: {
-    findUnique: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
   },
   department: {
-    findMany: jest.fn(),
-    create: jest.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
   },
   source: {
-    findMany: jest.fn(),
-    findUnique: jest.fn(),
-    create: jest.fn(),
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
   },
   document: {
-    findFirst: jest.fn(),
-    create: jest.fn(),
-    delete: jest.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
   },
 };
 const queue = {
-  enqueueDocument: jest.fn(),
-  getDocumentJobStatuses: jest.fn(),
+  enqueueDocument: vi.fn(),
+  getDocumentJobStatuses: vi.fn(),
 };
 
 function token(role = "admin", organizationId = "org-1"): string {
@@ -108,7 +117,7 @@ describe("Admin Sources Integration", () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("requires an authenticated admin", async () => {

@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from "vitest";
 import { verifyRelationOwnership } from "./verify-relation.js";
 import { OrgScopeViolationError } from "./errors.js";
 import type { RelationVerification } from "./config.js";
@@ -17,9 +18,8 @@ function makeClient(
   >,
 ) {
   const delegate = (model: "user" | "department" | "source") => ({
-    findUnique: jest.fn(
-      async ({ where }: { where: Record<string, unknown> }) =>
-        existing[model]?.includes(String(where["id"])) ? { ...where } : null,
+    findUnique: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
+      existing[model]?.includes(String(where["id"])) ? { ...where } : null,
     ),
   });
   return {
