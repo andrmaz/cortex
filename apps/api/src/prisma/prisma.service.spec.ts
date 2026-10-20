@@ -23,6 +23,37 @@ function makeRows(count: number, organizationId = "org-a") {
   }));
 }
 
+describe("PrismaService.searchChunksBySimilarity", () => {
+  let service: PrismaService;
+
+  beforeAll(() => {
+    process.env["DATABASE_URL"] ??= "******localhost:5432/cortex";
+    service = new PrismaService();
+  });
+
+  const params = { organizationId: "org-a", embedding: [0.1, 0.2], limit: 5 };
+
+  it("rejects when no org context is active", async () => {
+    await expect(service.searchChunksBySimilarity(params)).rejects.toThrow(
+      MissingOrgContextError,
+    );
+  });
+
+  it("rejects a mismatched organization", async () => {
+    await expect(
+      runWithOrgContext("org-b", () =>
+        service.searchChunksBySimilarity(params),
+      ),
+    ).rejects.toThrow(OrgScopeViolationError);
+  });
+
+  it("rejects an unscoped context", async () => {
+    await expect(
+      runWithoutOrgScope(() => service.searchChunksBySimilarity(params)),
+    ).rejects.toThrow(OrgScopeViolationError);
+  });
+});
+
 describe("PrismaService.writeChunkEmbeddings", () => {
   let service: PrismaService;
   let executeRaw: Mock;
