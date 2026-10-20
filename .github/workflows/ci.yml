@@ -76,6 +76,20 @@ jobs:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
     needs: lint-and-typecheck
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: cortex
+          POSTGRES_PASSWORD: cortex
+          POSTGRES_DB: cortex_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cortex -d cortex_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -106,6 +120,16 @@ jobs:
           else
             pnpm test
           fi
+
+      - name: Apply test database migrations
+        run: pnpm --filter db db:migrate:deploy
+        env:
+          DATABASE_URL: "postgresql://cortex:cortex@localhost:5432/cortex_test"
+
+      - name: Run PostgreSQL retrieval integration tests
+        run: pnpm --filter @cortex/api test:postgres
+        env:
+          DATABASE_URL: "postgresql://cortex:cortex@localhost:5432/cortex_test"
 
   validate-schema:
     name: Validate Prisma Schema

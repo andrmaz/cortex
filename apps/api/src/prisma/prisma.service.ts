@@ -20,6 +20,15 @@ export interface ChunkEmbeddingWrite {
   readonly embedding: readonly number[];
 }
 
+export interface ChunkSimilarityRow {
+  readonly chunkId: string;
+  readonly content: string;
+  readonly documentId: string;
+  readonly sourceId: string;
+  readonly documentMetadata: unknown;
+  readonly score: number;
+}
+
 function createRawPrismaClient(): PrismaClient {
   const connectionString = process.env["DATABASE_URL"];
   invariant(connectionString, "DATABASE_URL environment variable is required");
@@ -97,6 +106,60 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
   get $transaction(): PrismaClient["$transaction"] {
     return this.scoped.$transaction.bind(this.scoped);
+  }
+
+  /**
+   * Cosine-similarity search over indexed Chunks of one organization.
+   *
+   * Raw SQL (pgvector operators are unsupported by Prisma Client) runs in an
+   * unscoped context, so isolation is enforced here: the active org context
+   * must match `organizationId`, and the query filters on it.
+   */
+  async searchChunksBySimilarity(params: {
+    readonly organizationId: string;
+    readonly embedding: readonly number[];
+    readonly limit: number;
+  }): Promise<ChunkSimilarityRow[]> {
+    const { organizationId, embedding, limit } = params;
+    invariant(
+      embedding.length > 0,
+      "query embedding must be a non-empty vector",
+    );
+    invariant(
+      Number.isInteger(limit) && limit > 0,
+      "limit must be a positive integer",
+    );
+
+    const context = getOrgContext();
+    if (!context) {
+      throw new MissingOrgContextError("Chunk", "searchChunksBySimilarity");
+    }
+    if (
+      isUnscopedContext(context) ||
+      context.organizationId !== organizationId
+    ) {
+      throw new OrgScopeViolationError("Chunk", "searchChunksBySimilarity");
+    }
+
+    const vector = `[${embedding.join(",")}]`;
+    return runWithoutOrgScope(() =>
+      this.scoped.$queryRaw<ChunkSimilarityRow[]>(Prisma.sql`
+        SELECT c."id" AS "chunkId",
+               c."content" AS "content",
+               c."document_id" AS "documentId",
+               d."source_id" AS "sourceId",
+               d."metadata" AS "documentMetadata",
+               1 - (c."embedding" <=> ${vector}::vector) AS "score"
+        FROM "chunks" AS c
+        JOIN "documents" AS d
+          ON d."id" = c."document_id"
+         AND d."organization_id" = c."organization_id"
+        WHERE c."organization_id" = ${organizationId}
+          AND c."embedding" IS NOT NULL
+        ORDER BY c."embedding" <=> ${vector}::vector ASC, c."id" ASC
+        LIMIT ${limit}
+      `),
+    );
   }
 
   /**
