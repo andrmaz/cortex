@@ -13,7 +13,7 @@
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
-    "fallow": "3.31.0",
+    "fallow": "3.34.0",
     "husky": "^9.1.7",
     "prettier": "^3.7.4",
     "turbo": "^2.9.14",
