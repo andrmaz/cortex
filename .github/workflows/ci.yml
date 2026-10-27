@@ -139,15 +139,9 @@ jobs:
     continue-on-error: true
     permissions:
       contents: read
-      pull-requests: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Publish PR summary
+      - name: Publish job summary
         env:
-          CI_SUMMARY_NAME: main-ci
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LINT_RESULT: ${{ needs.lint-and-typecheck.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           TEST_RESULT: ${{ needs.test.result }}
@@ -165,4 +159,3 @@ jobs:
             echo
             echo "See the [workflow run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) for job logs."
           } >> "$GITHUB_STEP_SUMMARY"
-          node .github/scripts/ci-pr-summary.mjs

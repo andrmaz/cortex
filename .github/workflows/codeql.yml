@@ -48,33 +48,3 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
-
-  codeql-summary:
-    name: CodeQL summary
-    needs: analyze
-    if: always() && github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Publish PR summary
-        env:
-          CI_SUMMARY_NAME: codeql
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANALYSIS_RESULT: ${{ needs.analyze.result }}
-        run: |
-          {
-            echo "## CodeQL summary"
-            echo
-            echo "| Analysis | Result |"
-            echo "| --- | --- |"
-            echo "| JavaScript/TypeScript and GitHub Actions | \`${ANALYSIS_RESULT}\` |"
-            echo
-            echo "See the [workflow run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) for analysis details and diagnostics."
-          } >> "$GITHUB_STEP_SUMMARY"
-          node .github/scripts/ci-pr-summary.mjs
