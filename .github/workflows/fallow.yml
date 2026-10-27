@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   audit:
@@ -37,3 +38,4 @@ jobs:
           format: compact
           gate: new-only
           fail-on-issues: true
+          comment: true
