@@ -130,3 +130,39 @@ jobs:
         run: pnpm --filter db db:validate
         env:
           DATABASE_URL: "postgresql://localhost:5432/test"
+
+  ci-summary:
+    name: CI summary
+    needs: [lint-and-typecheck, build, test, validate-schema]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Publish PR summary
+        env:
+          CI_SUMMARY_NAME: main-ci
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LINT_RESULT: ${{ needs.lint-and-typecheck.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          SCHEMA_RESULT: ${{ needs.validate-schema.result }}
+        run: |
+          {
+            echo "## CI summary"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Lint & Type Check | \`${LINT_RESULT}\` |"
+            echo "| Build | \`${BUILD_RESULT}\` |"
+            echo "| Unit & Integration Tests | \`${TEST_RESULT}\` |"
+            echo "| Prisma Schema | \`${SCHEMA_RESULT}\` |"
+            echo
+            echo "See the [workflow run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) for job logs."
+          } >> "$GITHUB_STEP_SUMMARY"
+          node .github/scripts/ci-pr-summary.mjs
