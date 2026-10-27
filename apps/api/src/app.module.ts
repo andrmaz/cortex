@@ -5,11 +5,19 @@ import { AuthModule } from "./auth/auth.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { AdminModule } from "./admin/admin.module";
 import { IngestionModule } from "./ingestion/ingestion.module";
+import { RetrievalModule } from "./retrieval/retrieval.module";
 import { OrgContextInterceptor } from "./common/org-context.interceptor";
 import { OrgScopeExceptionFilter } from "./common/org-scope-exception.filter";
 
 @Module({
-  imports: [PrismaModule, AuthModule, MCPModule, AdminModule, IngestionModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    MCPModule,
+    AdminModule,
+    IngestionModule,
+    RetrievalModule,
+  ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: OrgContextInterceptor },
     { provide: APP_FILTER, useClass: OrgScopeExceptionFilter },

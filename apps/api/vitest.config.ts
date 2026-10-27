@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import swc from "unplugin-swc";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 const src = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -22,6 +22,7 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.spec.ts"],
+    exclude: [...configDefaults.exclude, "**/*.postgres.spec.ts"],
     environment: "node",
     coverage: { reportsDirectory: "coverage" },
   },

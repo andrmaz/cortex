@@ -26,3 +26,14 @@ Real Google login is unavailable to QA. Seed a fake org and sign in:
 
 - API, DB, and shared packages use Vitest (pnpm test, or `pnpm --filter <pkg> test`); specs are `*.spec.ts` next to source.
 - Use `vi` from `vitest` for mocks; import test APIs explicitly (no globals).
+
+## PostgreSQL retrieval integration tests
+
+The default API suite uses a mock database client. To verify the real
+`PrismaService` SQL, run `pnpm --filter @cortex/api test:postgres` against a
+PostgreSQL 16 database with pgvector available. Set `DATABASE_URL`, generate the
+Prisma client (`pnpm --filter db db:generate`), and apply migrations
+(`pnpm --filter db db:migrate:deploy`) first. Use a dedicated test database.
+The suite creates uniquely named Organization fixtures and deletes only those
+fixtures after each run. CI provisions pgvector and runs this suite explicitly;
+it is not skipped when the database is unavailable.
