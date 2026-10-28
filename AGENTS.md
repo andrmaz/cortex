@@ -28,7 +28,7 @@ Cortex is a TypeScript monorepo for an MCP-first context, policy, and audit plat
 
 ### Issue delivery
 
-Use the `issue-sdlc` skill when asked to take an existing GitHub issue through implementation and pull request delivery. Issues labeled `ready-for-agent` skip Planning through Design; see [`docs/agents/sdlc.md`](docs/agents/sdlc.md).
+Use the `issue-sdlc` skill when asked to take an existing GitHub issue through implementation and pull request delivery, and reassess at handoffs: plan approval, a move from planning to implementation, or resumed work. Planning-only requests do not activate it, and plan approval is not authorization for external GitHub writes. Record the selected scope in the ledger. Issues labeled `ready-for-agent` skip Planning through Design only; Coding review, QA, and the terminal completion check still apply. See [`docs/agents/sdlc.md`](docs/agents/sdlc.md).
 
 ### Issue tracker
 

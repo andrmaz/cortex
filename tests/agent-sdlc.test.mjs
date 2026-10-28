@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -174,4 +174,125 @@ test("qa skill defines a Chrome DevTools walkthrough", async () => {
   assert.match(qa, /Chrome DevTools/i);
   assert.match(qa, /acceptance criterion/i);
   assert.match(qa, /## QA walkthrough/);
+});
+
+const parseScenarios = (lifecycle) => {
+  const section =
+    lifecycle.split("### Activation scenarios")[1]?.split("\n## ")[0] ?? "";
+  const rows = section
+    .split("\n")
+    .filter((line) => line.startsWith("|"))
+    .slice(2)
+    .map((line) =>
+      line
+        .split("|")
+        .slice(1, -1)
+        .map((cell) => cell.trim()),
+    );
+  return new Map(
+    rows.map(([name, decision, evidence, status]) => [
+      name,
+      { decision, evidence, status },
+    ]),
+  );
+};
+
+const expectedScenarios = [
+  ["Planning-only request", /Do not activate/, /plan/i, /planning-only/],
+  [
+    "Approved plan handed off",
+    /Reassess.*Entry.*triage/,
+    /readiness result, scope, write authorization/,
+    /never counts as readiness/,
+  ],
+  [
+    "Explicitly requested end-to-end",
+    /all phases through Maintenance/,
+    /every applicable phase/,
+    /terminal completion check/,
+  ],
+  [
+    "Issue has `ready-for-agent`",
+    /only.*Coding review and QA still run/,
+    /Coding review and QA evidence/,
+    /never as `passed`/,
+  ],
+  ["Issue has `needs-info`", /do not implement/, /blocking state/, /`blocked`/],
+  [
+    "Completion claimed without",
+    /Do not complete/,
+    /complete change surface.*QA evidence per acceptance criterion/,
+    /not delivered/,
+  ],
+  [
+    "Resume with a missing ledger",
+    /Re-run Entry/,
+    /lost one/,
+    /`unverified`.*never claim/,
+  ],
+  [
+    "Pull request requested outside",
+    /Do not push, edit the issue, or open a PR/,
+    /authorization blocker/,
+    /Deployment `blocked`.*not complete/,
+  ],
+];
+
+test("sdlc.md activation scenarios define decision, evidence, and truthful status", async () => {
+  const scenarios = parseScenarios(await readRepoFile("docs/agents/sdlc.md"));
+  assert.equal(scenarios.size, expectedScenarios.length);
+  for (const [prefix, decision, evidence, status] of expectedScenarios) {
+    const key = [...scenarios.keys()].find((name) => name.startsWith(prefix));
+    assert.ok(key, `scenario "${prefix}" is missing`);
+    const row = scenarios.get(key);
+    assert.match(row.decision, decision, `${prefix}: decision`);
+    assert.match(row.evidence, evidence, `${prefix}: evidence`);
+    assert.match(row.status, status, `${prefix}: status`);
+  }
+});
+
+test("sdlc.md separates plan approval from external-write authorization", async () => {
+  const lifecycle = await readRepoFile("docs/agents/sdlc.md");
+  assert.match(
+    lifecycle,
+    /never implies authorization for external GitHub writes/,
+  );
+  assert.match(lifecycle, /Reassess workflow selection at every handoff/);
+  assert.match(
+    lifecycle,
+    /`enhancement`, `bug`, or `mvp` do not make an issue ready/,
+  );
+});
+
+test("sdlc.md terminal completion check gates every lifecycle gate", async () => {
+  const lifecycle = await readRepoFile("docs/agents/sdlc.md");
+  const check =
+    lifecycle.split("## Terminal completion check")[1]?.split("\n## ")[0] ?? "";
+  for (const gate of [
+    "readiness",
+    "Coding review",
+    "QA",
+    "Deployment",
+    "Maintenance",
+  ]) {
+    assert.ok(check.includes(gate), `${gate} missing from completion check`);
+  }
+  assert.match(check, /completion-tool reminder/);
+  assert.match(check, /full lifecycle complete/);
+  assert.match(lifecycle, /formatting churn/);
+});
+
+test("AGENTS.md and issue-sdlc skill share activation rules", async () => {
+  const [agents, skill] = await Promise.all([
+    readRepoFile("AGENTS.md"),
+    readRepoFile(".agents/skills/issue-sdlc/SKILL.md"),
+  ]);
+  for (const doc of [agents, skill]) {
+    assert.match(doc, /[Pp]lanning-only/);
+    assert.match(doc, /plan approval/i);
+    assert.match(doc, /external (GitHub )?writes/);
+    assert.match(doc, /ledger/);
+  }
+  assert.match(skill, /terminal completion check/);
+  assert.match(agents, /terminal completion check/);
 });
