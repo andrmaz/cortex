@@ -1,4 +1,14 @@
-import { Controller, Post, Body, Req, UseGuards } from "@nestjs/common";
+import {
+  BadRequestException,
+  Controller,
+  Post,
+  Body,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
+import { RetrievalService } from "../retrieval/retrieval.service";
+import { ContextBundleService } from "./context-bundle.service";
+import type { Citation } from "./context-bundle.service";
 import type { Request } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedUser } from "../auth/auth.types";
@@ -12,6 +22,7 @@ interface MCPQueryBody {
 interface MCPResponse {
   scope: ResolvedScope;
   context: string[];
+  citations: readonly Citation[];
   policy: {
     rules: string[];
   };
@@ -24,7 +35,11 @@ interface RequestWithJwtUser extends Request {
 
 @Controller("mcp")
 export class MCPController {
-  constructor(private readonly identityService: IdentityService) {}
+  constructor(
+    private readonly identityService: IdentityService,
+    private readonly retrieval: RetrievalService,
+    private readonly bundles: ContextBundleService,
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -32,7 +47,10 @@ export class MCPController {
     @Body() body: MCPQueryBody,
     @Req() req: RequestWithJwtUser,
   ): Promise<MCPResponse> {
-    const { query } = body;
+    const query = typeof body?.query === "string" ? body.query.trim() : "";
+    if (query.length === 0) {
+      throw new BadRequestException("query must be a non-empty string");
+    }
     const { id: userId, organizationId } = req.user;
 
     const scope = await this.identityService.resolveScope(
@@ -45,17 +63,16 @@ export class MCPController {
       rules: ["Use TypeScript", "Follow clean architecture"],
     };
 
-    // Stub context – will be replaced with retrieval in a later slice.
-    const context = [
-      "Company uses modular monolith architecture",
-      "No direct DB access from controllers",
-    ];
+    // Org comes from the JWT only, never from the request body.
+    const chunks = await this.retrieval.search(query, organizationId);
+    const bundle = this.bundles.assemble(chunks);
 
     return {
       scope,
-      context,
+      context: bundle.chunks.map((chunk) => chunk.content),
+      citations: bundle.citations,
       policy,
-      answer: `Based on company standards: ${query}`,
+      answer: this.bundles.composeAnswer(query, bundle),
     };
   }
 }

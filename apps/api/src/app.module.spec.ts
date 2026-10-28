@@ -18,6 +18,7 @@ class MockPrismaService {
   user = { findUnique: vi.fn(), create: vi.fn() };
   organization = { findFirst: vi.fn() };
   userDepartment = { findFirst: vi.fn().mockResolvedValue(null) };
+  searchChunksBySimilarity = vi.fn().mockResolvedValue([]);
 }
 
 const mockJwtUser: AuthenticatedUser = {
@@ -99,8 +100,7 @@ describe("AppModule", () => {
       makeMockReq(),
     );
 
-    expect(response.answer).toBe(
-      "Based on company standards: integration check",
-    );
+    expect(response.answer).toContain("No relevant context found");
+    expect(response.citations).toEqual([]);
   });
 });
