@@ -123,6 +123,35 @@ test("AGENTS.md links lifecycle, tracker, and ready-for-agent", async () => {
   assert.match(agentGuidance, /ready-for-agent/);
 });
 
+test(
+  "AGENTS.md activates issue-sdlc for issue implementation without PR delivery",
+  async () => {
+    const agentGuidance = await readRepoFile("AGENTS.md");
+    assert.match(
+      agentGuidance,
+      /Before starting any task, evaluate whether `issue-sdlc` applies/,
+    );
+    assert.match(
+      agentGuidance,
+      /do not skip this check based on how the task was picked up/,
+    );
+    assert.match(agentGuidance, /a task implements an existing GitHub issue/);
+    assert.match(agentGuidance, /including an approved-plan handoff/);
+    assert.match(
+      agentGuidance,
+      /end-to-end implementation and pull request delivery/,
+    );
+    assert.match(
+      agentGuidance,
+      /Planning-only and non-issue tasks do not activate it/,
+    );
+    assert.match(
+      agentGuidance,
+      /plan approval is not authorization for external GitHub writes/,
+    );
+  },
+);
+
 test("issue tracker stays on GitHub Issues with in-place rewrites", async () => {
   const issueTracker = await readRepoFile("docs/agents/issue-tracker.md");
   assert.match(issueTracker, /GitHub Issues/);
