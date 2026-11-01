@@ -9,6 +9,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^@cortex\/shared\/policy$/,
+        replacement: src("../../packages/shared/src/policy.ts"),
+      },
+      {
         find: /^db\/client$/,
         replacement: src("../../packages/db/generated/prisma/client.ts"),
       },

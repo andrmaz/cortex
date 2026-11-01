@@ -11,6 +11,8 @@ import { UserDepartmentsController } from "./user-departments/user-departments.c
 import { UserDepartmentService } from "./user-departments/user-department.service";
 import { SourcesController } from "./sources/sources.controller";
 import { SourceService } from "./sources/source.service";
+import { PoliciesController } from "./policies/policies.controller";
+import { PolicyService } from "./policies/policy.service";
 
 @Module({
   imports: [PrismaModule, IngestionModule],
@@ -20,6 +22,7 @@ import { SourceService } from "./sources/source.service";
     AdminUsersController,
     UserDepartmentsController,
     SourcesController,
+    PoliciesController,
   ],
   providers: [
     OrganizationService,
@@ -27,6 +30,7 @@ import { SourceService } from "./sources/source.service";
     AdminUserService,
     UserDepartmentService,
     SourceService,
+    PolicyService,
   ],
 })
 export class AdminModule {}

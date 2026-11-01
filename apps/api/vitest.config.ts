@@ -10,6 +10,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^@cortex\/shared\/policy$/,
+        replacement: src("../../packages/shared/src/policy.ts"),
+      },
+      {
         find: /^@cortex\/shared$/,
         replacement: src("../../packages/shared/src/index.ts"),
       },

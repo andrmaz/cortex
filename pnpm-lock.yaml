@@ -200,6 +200,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@cortex/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@cortex/ui':
         specifier: workspace:*
         version: link:../../packages/ui
