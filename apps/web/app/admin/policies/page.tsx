@@ -113,10 +113,7 @@ function PolicyVersion({
   departments: Department[];
 }) {
   return (
-    <article
-      key={`${policy.id}-${policy.updatedAt}`}
-      className={styles.version}
-    >
+    <article className={styles.version}>
       <PolicyVersionHeading policy={policy} departments={departments} />
       <PolicyVersionStatus policy={policy} />
       <PolicyLifecycle policy={policy} />
@@ -192,7 +189,7 @@ function PolicyVersions({
       ) : (
         policies.map((policy) => (
           <PolicyVersion
-            key={`${policy.id}-${policy.updatedAt}`}
+            key={policy.id}
             policy={policy}
             departments={departments}
           />
