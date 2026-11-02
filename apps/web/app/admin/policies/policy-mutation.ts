@@ -58,24 +58,40 @@ function policyId(
 
 function policyDocument(form: FormData) {
   const draft = form.get("rulesJson");
-  return parsePolicyDraft(typeof draft === "string" ? draft : "");
+  const parsed = parsePolicyDraft(typeof draft === "string" ? draft : "");
+  return parsed.document
+    ? { value: parsed.document }
+    : { error: parsed.error ?? "Invalid policy rules." };
+}
+
+function departmentId(form: FormData): Result<string> {
+  const departmentId = form.get("departmentId");
+  return typeof departmentId === "string" && departmentId
+    ? { value: departmentId }
+    : { error: "Select a Department." };
+}
+
+function combineResults<T, U, V>(
+  first: Result<T>,
+  second: Result<U>,
+  combine: (first: T, second: U) => V,
+): Result<V> {
+  if ("error" in first) return first;
+  if ("error" in second) return second;
+  return { value: combine(first.value, second.value) };
 }
 
 function createBody(form: FormData): Result<unknown> {
-  const parsed = policyDocument(form);
-  if (!parsed.document)
-    return { error: parsed.error ?? "Invalid policy rules." };
-  const departmentId = form.get("departmentId");
-  if (typeof departmentId !== "string" || !departmentId)
-    return { error: "Select a Department." };
-  return { value: { departmentId, rulesJson: parsed.document } };
+  return combineResults(
+    policyDocument(form),
+    departmentId(form),
+    (rulesJson, departmentId) => ({ departmentId, rulesJson }),
+  );
 }
 
 function updateBody(form: FormData): Result<unknown> {
   const parsed = policyDocument(form);
-  return parsed.document
-    ? { value: { rulesJson: parsed.document } }
-    : { error: parsed.error ?? "Invalid policy rules." };
+  return "error" in parsed ? parsed : { value: { rulesJson: parsed.value } };
 }
 
 function policyBody(
@@ -90,27 +106,33 @@ function policyBody(
 function deleteConfirmation(
   operation: PolicyOperation,
   form: FormData,
-): string | undefined {
-  return operation === "delete" && form.get("confirmDelete") !== "yes"
-    ? "Confirm deletion before continuing."
-    : undefined;
+): Result<undefined> {
+  return operation !== "delete" || form.get("confirmDelete") === "yes"
+    ? { value: undefined }
+    : { error: "Confirm deletion before continuing." };
+}
+
+function resultError(result: Result<unknown>): string | undefined {
+  return "error" in result ? result.error : undefined;
 }
 
 function prepareMutation(
   operation: PolicyOperation,
   form: FormData,
 ): Result<PreparedMutation> {
-  const id = policyId(operation, form);
-  if ("error" in id) return id;
+  const idResult = policyId(operation, form);
   const body = policyBody(operation, form);
-  if ("error" in body) return body;
-  const confirmationError = deleteConfirmation(operation, form);
-  if (confirmationError) return { error: confirmationError };
+  const confirmation = deleteConfirmation(operation, form);
+  const error =
+    resultError(idResult) ?? resultError(body) ?? resultError(confirmation);
+  if (error) return { error };
+  const selectedPolicyId = "value" in idResult ? idResult.value : undefined;
+  const requestBody = "value" in body ? body.value : undefined;
   const path =
     operation === "create"
       ? ""
-      : `/${encodeURIComponent(id.value ?? "")}${routeSuffixes[operation]}`;
-  return { value: { path, method: methods[operation], body: body.value } };
+      : `/${encodeURIComponent(selectedPolicyId ?? "")}${routeSuffixes[operation]}`;
+  return { value: { path, method: methods[operation], body: requestBody } };
 }
 
 async function responseError(response: Response): Promise<string> {
