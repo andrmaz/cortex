@@ -11,7 +11,7 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
-import type { Policy } from "db/client";
+import type { Policy } from "db";
 import type { AuthenticatedUser } from "../../auth/auth.types";
 import { AdminRoleGuard } from "../guards/admin-role.guard";
 import { PolicyService } from "./policy.service";

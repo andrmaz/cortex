@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import type { Policy } from "db/client";
+import type { Policy } from "db";
 import { isPrismaUniqueConstraintError } from "../../common/prisma-errors";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { PolicyRulesJson } from "./policy.dto";
