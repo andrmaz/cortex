@@ -2,8 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { policyRequest } from "./api";
-import { mutatePolicy } from "./policy-mutation";
+import { mutatePolicy, type PolicyOperation } from "./policy-mutation";
 import type { PolicyActionState } from "./types";
+
+function isLifecycleOperation(
+  operation: FormDataEntryValue | null,
+): operation is Extract<PolicyOperation, "activate" | "deactivate" | "delete"> {
+  return (
+    operation === "activate" ||
+    operation === "deactivate" ||
+    operation === "delete"
+  );
+}
 
 export async function savePolicyAction(
   _state: PolicyActionState,
@@ -23,11 +33,7 @@ export async function lifecyclePolicyAction(
   form: FormData,
 ): Promise<PolicyActionState> {
   const operation = form.get("operation");
-  if (
-    operation !== "activate" &&
-    operation !== "deactivate" &&
-    operation !== "delete"
-  )
+  if (!isLifecycleOperation(operation))
     return { error: "Unknown policy operation." };
   const result = await mutatePolicy(operation, form, policyRequest);
   if (result.message) revalidatePath("/admin/policies");

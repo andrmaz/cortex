@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
+import { useActionState, useId, useState, type FormEvent } from "react";
 import type { Department } from "../departments/types";
 import type { Policy, PolicyActionState } from "./types";
 import { savePolicyAction, lifecyclePolicyAction } from "./actions";
@@ -13,6 +13,96 @@ const template = JSON.stringify(
   2,
 );
 const initialState: PolicyActionState = {};
+
+function validateDraft(
+  event: FormEvent<HTMLFormElement>,
+  draft: string,
+  setValidation: (error: string | undefined) => void,
+): void {
+  const parsed = parsePolicyDraft(draft);
+  setValidation(parsed.error);
+  if (parsed.error) event.preventDefault();
+}
+
+function DepartmentField({
+  policy,
+  departments,
+  id,
+}: {
+  policy?: Policy;
+  departments: Department[];
+  id: string;
+}) {
+  if (policy) return <input type="hidden" name="policyId" value={policy.id} />;
+  return (
+    <label htmlFor={`${id}-department`}>
+      Department
+      <select
+        id={`${id}-department`}
+        name="departmentId"
+        required
+        defaultValue=""
+      >
+        <option value="" disabled>
+          Select a Department
+        </option>
+        {departments.map((department) => (
+          <option key={department.id} value={department.id}>
+            {department.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function EditorFeedback({
+  validation,
+  state,
+  id,
+}: {
+  validation?: string;
+  state: PolicyActionState;
+  id: string;
+}) {
+  return (
+    <div id={`${id}-feedback`} aria-live="polite">
+      <EditorError validation={validation} error={state.error} />
+      <EditorStatus validation={validation} message={state.message} />
+    </div>
+  );
+}
+
+function EditorError({
+  validation,
+  error,
+}: {
+  validation?: string;
+  error?: string;
+}) {
+  const message = validation ?? error;
+  return message ? (
+    <p role="alert" className={styles.error}>
+      {message}
+    </p>
+  ) : null;
+}
+
+function EditorStatus({
+  validation,
+  message,
+}: {
+  validation?: string;
+  message?: string;
+}) {
+  if (!message || validation) return null;
+  return <p role="status">{message}</p>;
+}
+
+function saveButtonLabel(pending: boolean, editing: boolean): string {
+  if (pending) return "Saving…";
+  return editing ? "Save inactive version" : "Create inactive version";
+}
 
 export function PolicyEditor({
   departments,
@@ -34,34 +124,9 @@ export function PolicyEditor({
     <form
       action={action}
       className={styles.form}
-      onSubmit={(event) => {
-        const parsed = parsePolicyDraft(draft);
-        setValidation(parsed.error);
-        if (parsed.error) event.preventDefault();
-      }}
+      onSubmit={(event) => validateDraft(event, draft, setValidation)}
     >
-      {policy ? (
-        <input type="hidden" name="policyId" value={policy.id} />
-      ) : (
-        <label htmlFor={`${id}-department`}>
-          Department
-          <select
-            id={`${id}-department`}
-            name="departmentId"
-            required
-            defaultValue=""
-          >
-            <option value="" disabled>
-              Select a Department
-            </option>
-            {departments.map((department) => (
-              <option key={department.id} value={department.id}>
-                {department.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <DepartmentField policy={policy} departments={departments} id={id} />
       <label htmlFor={`${id}-rules`}>Policy JSON</label>
       <textarea
         id={`${id}-rules`}
@@ -81,24 +146,50 @@ export function PolicyEditor({
         Empty allowedSourceIds permits no sources. Rules use literal,
         case-insensitive contains matching; deny blocks the whole request.
       </p>
-      <div id={`${id}-feedback`} aria-live="polite">
-        {validation || state.error ? (
-          <p role="alert" className={styles.error}>
-            {validation ?? state.error}
-          </p>
-        ) : null}
-        {state.message && !validation ? (
-          <p role="status">{state.message}</p>
-        ) : null}
-      </div>
+      <EditorFeedback validation={validation} state={state} id={id} />
       <button disabled={pending || departments.length === 0} type="submit">
-        {pending
-          ? "Saving…"
-          : policy
-            ? "Save inactive version"
-            : "Create inactive version"}
+        {saveButtonLabel(pending, Boolean(policy))}
       </button>
     </form>
+  );
+}
+
+function lifecycleButtonLabel(pending: boolean, active: boolean): string {
+  if (pending) return "Updating…";
+  return active ? "Deactivate" : "Activate";
+}
+
+function DeletionControls({
+  policy,
+  pending,
+}: {
+  policy: Policy;
+  pending: boolean;
+}) {
+  if (policy.isActive) return null;
+  return (
+    <>
+      <label>
+        <input type="checkbox" name="confirmDelete" value="yes" /> Confirm
+        deletion
+      </label>
+      <button name="operation" value="delete" disabled={pending}>
+        Delete version
+      </button>
+    </>
+  );
+}
+
+function LifecycleFeedback({ state }: { state: PolicyActionState }) {
+  return (
+    <>
+      {state.error ? (
+        <p role="alert" className={styles.error}>
+          {state.error}
+        </p>
+      ) : null}
+      {state.message ? <p role="status">{state.message}</p> : null}
+    </>
   );
 }
 
@@ -115,25 +206,10 @@ export function PolicyLifecycle({ policy }: { policy: Policy }) {
         value={policy.isActive ? "deactivate" : "activate"}
         disabled={pending}
       >
-        {pending ? "Updating…" : policy.isActive ? "Deactivate" : "Activate"}
+        {lifecycleButtonLabel(pending, policy.isActive)}
       </button>
-      {!policy.isActive ? (
-        <>
-          <label>
-            <input type="checkbox" name="confirmDelete" value="yes" /> Confirm
-            deletion
-          </label>
-          <button name="operation" value="delete" disabled={pending}>
-            Delete version
-          </button>
-        </>
-      ) : null}
-      {state.error ? (
-        <p role="alert" className={styles.error}>
-          {state.error}
-        </p>
-      ) : null}
-      {state.message ? <p role="status">{state.message}</p> : null}
+      <DeletionControls policy={policy} pending={pending} />
+      <LifecycleFeedback state={state} />
     </form>
   );
 }

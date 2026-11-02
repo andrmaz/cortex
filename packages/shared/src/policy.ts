@@ -51,6 +51,79 @@ function text(value: unknown, path: string, max = 1000): string {
 }
 
 /** Strict, shared boundary validation; never accepts executable rule expressions. */
+function parseCondition(input: unknown, path: string): PolicyCondition {
+  const when = object(input, path);
+  keys(when, ["queryContains", "chunkContentContains"], path);
+  if (Object.keys(when).length !== 1)
+    throw new Error(`${path} must have exactly one condition`);
+  if ("queryContains" in when) {
+    return { queryContains: text(when.queryContains, `${path}.queryContains`) };
+  }
+  return {
+    chunkContentContains: text(
+      when.chunkContentContains,
+      `${path}.chunkContentContains`,
+    ),
+  };
+}
+
+function parseDenyRule(
+  rule: Record<string, unknown>,
+  id: string,
+  when: PolicyCondition,
+  path: string,
+): PolicyRule {
+  keys(rule, ["id", "when", "effect", "reasonCode", "reason"], path);
+  const reasonCode = text(rule.reasonCode, `${path}.reasonCode`, 100);
+  if (!/^[A-Z][A-Z0-9_]*$/.test(reasonCode))
+    throw new Error(`${path}.reasonCode must be an uppercase machine code`);
+  return {
+    id,
+    when,
+    effect: "deny",
+    reasonCode,
+    reason: text(rule.reason, `${path}.reason`),
+  };
+}
+
+function parseRedactRule(
+  rule: Record<string, unknown>,
+  id: string,
+  when: PolicyCondition,
+  path: string,
+): PolicyRule {
+  keys(rule, ["id", "when", "effect", "replacement"], path);
+  if (!("chunkContentContains" in when))
+    throw new Error(`${path}.redact requires chunkContentContains`);
+  if (typeof rule.replacement !== "string" || rule.replacement.length > 1000) {
+    throw new Error(
+      `${path}.replacement must be a string of at most 1000 characters`,
+    );
+  }
+  return {
+    id,
+    when,
+    effect: "redact",
+    replacement: rule.replacement,
+  };
+}
+
+function parseRule(
+  input: unknown,
+  index: number,
+  ids: Set<string>,
+): PolicyRule {
+  const path = `policy.rules[${index}]`;
+  const rule = object(input, path);
+  const id = text(rule.id, `${path}.id`, 100);
+  if (ids.has(id)) throw new Error(`${path}.id must be unique`);
+  ids.add(id);
+  const when = parseCondition(rule.when, `${path}.when`);
+  if (rule.effect === "deny") return parseDenyRule(rule, id, when, path);
+  if (rule.effect === "redact") return parseRedactRule(rule, id, when, path);
+  throw new Error(`${path}.effect must be deny or redact`);
+}
+
 export function parsePolicyDocument(input: unknown): PolicyDocument {
   const doc = object(input, "policy");
   keys(doc, ["schemaVersion", "allowedSourceIds", "rules"], "policy");
@@ -74,66 +147,6 @@ export function parsePolicyDocument(input: unknown): PolicyDocument {
     throw new Error("policy.rules must be an array of at most 100 rules");
   }
   const ids = new Set<string>();
-  const rules = doc.rules.map((inputRule, i): PolicyRule => {
-    const path = `policy.rules[${i}]`;
-    const rule = object(inputRule, path);
-    const id = text(rule.id, `${path}.id`, 100);
-    if (ids.has(id)) throw new Error(`${path}.id must be unique`);
-    ids.add(id);
-    const when = object(rule.when, `${path}.when`);
-    keys(when, ["queryContains", "chunkContentContains"], `${path}.when`);
-    if (Object.keys(when).length !== 1) {
-      throw new Error(`${path}.when must have exactly one condition`);
-    }
-    const condition: PolicyCondition =
-      "queryContains" in when
-        ? {
-            queryContains: text(
-              when.queryContains,
-              `${path}.when.queryContains`,
-            ),
-          }
-        : {
-            chunkContentContains: text(
-              when.chunkContentContains,
-              `${path}.when.chunkContentContains`,
-            ),
-          };
-    if (rule.effect === "deny") {
-      keys(rule, ["id", "when", "effect", "reasonCode", "reason"], path);
-      const reasonCode = text(rule.reasonCode, `${path}.reasonCode`, 100);
-      if (!/^[A-Z][A-Z0-9_]*$/.test(reasonCode)) {
-        throw new Error(`${path}.reasonCode must be an uppercase machine code`);
-      }
-      return {
-        id,
-        when: condition,
-        effect: "deny",
-        reasonCode,
-        reason: text(rule.reason, `${path}.reason`),
-      };
-    }
-    if (rule.effect === "redact") {
-      keys(rule, ["id", "when", "effect", "replacement"], path);
-      if (!("chunkContentContains" in condition)) {
-        throw new Error(`${path}.redact requires chunkContentContains`);
-      }
-      if (
-        typeof rule.replacement !== "string" ||
-        rule.replacement.length > 1000
-      ) {
-        throw new Error(
-          `${path}.replacement must be a string of at most 1000 characters`,
-        );
-      }
-      return {
-        id,
-        when: condition,
-        effect: "redact",
-        replacement: rule.replacement,
-      };
-    }
-    throw new Error(`${path}.effect must be deny or redact`);
-  });
+  const rules = doc.rules.map((rule, index) => parseRule(rule, index, ids));
   return { schemaVersion: 1, allowedSourceIds, rules };
 }
