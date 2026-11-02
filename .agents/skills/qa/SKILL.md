@@ -35,12 +35,14 @@ Do not skip Browser mode when a UI path exists.
 ## 3. Browser walkthrough (Chrome DevTools MCP)
 
 1. Confirm the target URL (local dev server, preview, or documented base URL). Start the app only when the repo docs say how and it is required for the criteria.
-2. For each step: navigate or interact, then capture evidence with an accessibility snapshot and a screenshot when the visual result matters.
+2. For each step: navigate or interact, then capture evidence with an accessibility snapshot and a screenshot when the visual result matters. Save each visually relevant screenshot as a file under `.tools/qa-evidence/` in the workspace (for example, `issue-72/01-before.png`); create the destination directory when needed and pass the workspace-relative path through the screenshot tool's `filename` option so the PR workflow can access the file.
 3. Use CDP (`Runtime.evaluate`, DOM queries, Network/console) when the criterion depends on runtime state, errors, or responses not visible in the snapshot.
 4. On failure: stop the happy path, record the step, expected vs actual, and evidence. Fix is out of scope for this skill unless the user (or `issue-sdlc`) asks to return to Coding.
 5. Unlock/close the browser session when finished with all browser work for the turn.
 
 Avoid click-retry loops without new evidence. After four failed attempts on the same step, mark the criterion failed and continue only if remaining criteria are independent.
+
+Keep the screenshot files local and out of the committed change. In the QA evidence table, record each screenshot's workspace-relative path next to the criterion it proves; do not report an ephemeral screenshot artifact as a local file.
 
 ## 4. Repository checks
 
