@@ -2,11 +2,6 @@ export interface PolicyRulesJson {
   rules: string[];
 }
 
-export interface CreatePolicyDto {
-  departmentId: string;
-  rulesJson: PolicyRulesJson;
-}
-
 export interface PolicyResponseDto {
   id: string;
   version: number;

@@ -12,10 +12,11 @@ async function parseJsonSafe<T>(res: Response): Promise<T | null> {
 }
 
 function getErrorMessage(body: { message?: string | string[] } | null): string {
-  if (Array.isArray(body?.message)) {
-    return body.message.join(", ");
-  }
-  return body?.message ?? "Policy request failed";
+  const message = body?.message;
+  return (
+    (Array.isArray(message) ? message.join(", ") : message) ??
+    "Policy request failed"
+  );
 }
 
 export async function fetchPolicies(

@@ -13,6 +13,49 @@ type FormState = { error?: string };
 const initialState: FormState = {};
 const initialPolicyJson = '{\n  "rules": []\n}';
 
+function resetEditorOnSuccess(result: FormState, reset: () => void) {
+  if (!result.error) {
+    reset();
+  }
+}
+
+function PolicyFormErrors({
+  parseError,
+  actionError,
+}: {
+  parseError?: string;
+  actionError?: string;
+}) {
+  return (
+    <>
+      {parseError && (
+        <p role="alert" style={errorStyle}>
+          {parseError}
+        </p>
+      )}
+      {actionError && (
+        <p role="alert" style={errorStyle}>
+          {actionError}
+        </p>
+      )}
+    </>
+  );
+}
+
+function SubmitButton({
+  pending,
+  invalid,
+}: {
+  pending: boolean;
+  invalid: boolean;
+}) {
+  return (
+    <button type="submit" disabled={pending || invalid} style={buttonStyle}>
+      {pending ? "Saving…" : "Create inactive version"}
+    </button>
+  );
+}
+
 export function PolicyEditor({ departmentId }: PolicyEditorProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [jsonText, setJsonText] = useState(initialPolicyJson);
@@ -23,10 +66,10 @@ export function PolicyEditor({ departmentId }: PolicyEditorProps) {
     formData: FormData,
   ): Promise<FormState> => {
     const result = await createPolicyAction(departmentId, formData);
-    if (!result.error) {
+    resetEditorOnSuccess(result, () => {
       formRef.current?.reset();
       setJsonText(initialPolicyJson);
-    }
+    });
     return result;
   };
 
@@ -56,24 +99,8 @@ export function PolicyEditor({ departmentId }: PolicyEditorProps) {
         style={textareaStyle}
       />
 
-      {parsed.error && (
-        <p role="alert" style={errorStyle}>
-          {parsed.error}
-        </p>
-      )}
-      {state.error && (
-        <p role="alert" style={errorStyle}>
-          {state.error}
-        </p>
-      )}
-
-      <button
-        type="submit"
-        disabled={isPending || Boolean(parsed.error)}
-        style={buttonStyle}
-      >
-        {isPending ? "Saving…" : "Create inactive version"}
-      </button>
+      <PolicyFormErrors parseError={parsed.error} actionError={state.error} />
+      <SubmitButton pending={isPending} invalid={Boolean(parsed.error)} />
     </form>
   );
 }

@@ -37,6 +37,62 @@ async function DeptList({ organizationId }: { organizationId: string }) {
   return <DeptTable departments={departments} />;
 }
 
+function OrganizationSection({
+  organizations,
+  error,
+  selectedOrgId,
+}: {
+  organizations: Organization[];
+  error: string | null;
+  selectedOrgId?: string;
+}) {
+  return error ? (
+    <ErrorBanner message={error} />
+  ) : (
+    <OrgPicker
+      organizations={organizations}
+      selectedOrgId={selectedOrgId}
+      basePath="/admin/departments"
+    />
+  );
+}
+
+function ManagePoliciesLink({ organizationId }: { organizationId?: string }) {
+  if (!organizationId) {
+    return null;
+  }
+
+  return (
+    <p style={{ marginTop: "-12px", marginBottom: "24px" }}>
+      <a href={`/admin/policies?orgId=${encodeURIComponent(organizationId)}`}>
+        Manage policies
+      </a>
+    </p>
+  );
+}
+
+function DepartmentContent({ organizationId }: { organizationId?: string }) {
+  return organizationId ? (
+    <>
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>All departments</h2>
+        <Suspense fallback={<p>Loading…</p>}>
+          <DeptList organizationId={organizationId} />
+        </Suspense>
+      </section>
+
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>Create new department</h2>
+        <CreateDeptForm organizationId={organizationId} />
+      </section>
+    </>
+  ) : (
+    <p style={{ color: "#6b7280" }}>
+      Select an organization above to manage its departments.
+    </p>
+  );
+}
+
 interface PageProps {
   searchParams: Promise<{ orgId?: string }>;
 }
@@ -62,43 +118,13 @@ export default async function DepartmentsPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      {orgFetchError ? (
-        <ErrorBanner message={orgFetchError} />
-      ) : (
-        <OrgPicker
-          organizations={organizations}
-          selectedOrgId={orgId}
-          basePath="/admin/departments"
-        />
-      )}
-
-      {orgId && (
-        <p style={{ marginTop: "-12px", marginBottom: "24px" }}>
-          <a href={`/admin/policies?orgId=${encodeURIComponent(orgId)}`}>
-            Manage policies
-          </a>
-        </p>
-      )}
-
-      {orgId ? (
-        <>
-          <section style={sectionStyle}>
-            <h2 style={sectionTitleStyle}>All departments</h2>
-            <Suspense fallback={<p>Loading…</p>}>
-              <DeptList organizationId={orgId} />
-            </Suspense>
-          </section>
-
-          <section style={sectionStyle}>
-            <h2 style={sectionTitleStyle}>Create new department</h2>
-            <CreateDeptForm organizationId={orgId} />
-          </section>
-        </>
-      ) : (
-        <p style={{ color: "#6b7280" }}>
-          Select an organization above to manage its departments.
-        </p>
-      )}
+      <OrganizationSection
+        organizations={organizations}
+        error={orgFetchError}
+        selectedOrgId={orgId}
+      />
+      <ManagePoliciesLink organizationId={orgId} />
+      <DepartmentContent organizationId={orgId} />
     </div>
   );
 }

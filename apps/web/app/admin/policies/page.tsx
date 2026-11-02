@@ -18,6 +18,11 @@ interface PageProps {
   searchParams: Promise<{ orgId?: string; departmentId?: string }>;
 }
 
+interface FetchResult<T> {
+  value: T;
+  error: string | null;
+}
+
 function ErrorBanner({ message }: { message: string }) {
   return (
     <div role="alert" style={errorBannerStyle}>
@@ -26,42 +31,178 @@ function ErrorBanner({ message }: { message: string }) {
   );
 }
 
-export default async function PoliciesPage({ searchParams }: PageProps) {
-  const { orgId, departmentId } = await searchParams;
-
-  let organizations: Organization[] = [];
-  let organizationError: string | null = null;
+async function fetchWithFallback<T>(
+  fetcher: () => Promise<T>,
+  fallback: T,
+  fallbackMessage: string,
+): Promise<FetchResult<T>> {
   try {
-    organizations = await fetchOrganizations();
+    return { value: await fetcher(), error: null };
   } catch (error) {
-    organizationError =
-      error instanceof Error ? error.message : "Failed to load organizations";
+    return {
+      value: fallback,
+      error: error instanceof Error ? error.message : fallbackMessage,
+    };
   }
+}
 
-  let departments: Department[] = [];
-  let departmentError: string | null = null;
-  if (orgId) {
-    try {
-      departments = await fetchDepartments(orgId);
-    } catch (error) {
-      departmentError =
-        error instanceof Error ? error.message : "Failed to load departments";
-    }
-  }
+async function loadPoliciesPageData(orgId?: string, departmentId?: string) {
+  const organizations = await fetchWithFallback(
+    fetchOrganizations,
+    [],
+    "Failed to load organizations",
+  );
+  const departments: FetchResult<Department[]> = orgId
+    ? await fetchWithFallback(
+        () => fetchDepartments(orgId),
+        [],
+        "Failed to load departments",
+      )
+    : { value: [], error: null };
 
-  const selectedDepartment = departments.find(
+  const selectedDepartment = departments.value.find(
     (department) => department.id === departmentId,
   );
-  let policies: PolicyVersion[] = [];
-  let policyError: string | null = null;
-  if (selectedDepartment) {
-    try {
-      policies = await fetchPolicies(selectedDepartment.id);
-    } catch (error) {
-      policyError =
-        error instanceof Error ? error.message : "Failed to load policies";
-    }
+  const policies: FetchResult<PolicyVersion[]> = selectedDepartment
+    ? await fetchWithFallback(
+        () => fetchPolicies(selectedDepartment.id),
+        [],
+        "Failed to load policies",
+      )
+    : { value: [], error: null };
+
+  return {
+    orgId,
+    organizations: organizations.value,
+    organizationError: organizations.error,
+    departments: departments.value,
+    departmentError: departments.error,
+    selectedDepartment,
+    policies: policies.value,
+    policyError: policies.error,
+  };
+}
+
+function OrganizationSection({
+  organizations,
+  organizationError,
+  orgId,
+}: {
+  organizations: Organization[];
+  organizationError: string | null;
+  orgId?: string;
+}) {
+  return organizationError ? (
+    <ErrorBanner message={organizationError} />
+  ) : (
+    <OrgPicker
+      organizations={organizations}
+      selectedOrgId={orgId}
+      basePath="/admin/policies"
+    />
+  );
+}
+
+function EmptyDepartmentNotice({ departments }: { departments: Department[] }) {
+  if (departments.length > 0) {
+    return null;
   }
+
+  return (
+    <p style={{ color: "#6b7280" }}>
+      Create a department before adding policies.
+    </p>
+  );
+}
+
+function DepartmentSection({
+  orgId,
+  departments,
+  departmentError,
+  selectedDepartment,
+}: {
+  orgId?: string;
+  departments: Department[];
+  departmentError: string | null;
+  selectedDepartment?: Department;
+}) {
+  if (!orgId) {
+    return null;
+  }
+
+  if (departmentError) {
+    return <ErrorBanner message={departmentError} />;
+  }
+
+  return (
+    <>
+      <DepartmentPicker
+        organizationId={orgId}
+        departments={departments}
+        selectedDepartmentId={selectedDepartment?.id}
+      />
+      <EmptyDepartmentNotice departments={departments} />
+    </>
+  );
+}
+
+function PolicySections({
+  selectedDepartment,
+  policies,
+  policyError,
+}: {
+  selectedDepartment?: Department;
+  policies: PolicyVersion[];
+  policyError: string | null;
+}) {
+  if (!selectedDepartment) {
+    return null;
+  }
+
+  return (
+    <>
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>
+          {selectedDepartment.name} policy versions
+        </h2>
+        {policyError ? (
+          <ErrorBanner message={policyError} />
+        ) : (
+          <PolicyHistory policies={policies} />
+        )}
+      </section>
+
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>Create a version</h2>
+        <PolicyEditor departmentId={selectedDepartment.id} />
+      </section>
+    </>
+  );
+}
+
+function DepartmentPrompt({
+  orgId,
+  selectedDepartment,
+  departments,
+}: {
+  orgId?: string;
+  selectedDepartment?: Department;
+  departments: Department[];
+}) {
+  if (!orgId || selectedDepartment || departments.length === 0) {
+    return null;
+  }
+
+  return (
+    <p style={{ color: "#6b7280" }}>
+      Select a department to review and edit its policies.
+    </p>
+  );
+}
+
+export default async function PoliciesPage({ searchParams }: PageProps) {
+  const { orgId, departmentId } = await searchParams;
+  const data = await loadPoliciesPageData(orgId, departmentId);
 
   return (
     <div style={pageStyle}>
@@ -73,58 +214,27 @@ export default async function PoliciesPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      {organizationError ? (
-        <ErrorBanner message={organizationError} />
-      ) : (
-        <OrgPicker
-          organizations={organizations}
-          selectedOrgId={orgId}
-          basePath="/admin/policies"
-        />
-      )}
-
-      {orgId &&
-        (departmentError ? (
-          <ErrorBanner message={departmentError} />
-        ) : (
-          <DepartmentPicker
-            organizationId={orgId}
-            departments={departments}
-            selectedDepartmentId={selectedDepartment?.id}
-          />
-        ))}
-
-      {orgId && !departmentError && departments.length === 0 && (
-        <p style={{ color: "#6b7280" }}>
-          Create a department before adding policies.
-        </p>
-      )}
-
-      {selectedDepartment && (
-        <>
-          <section style={sectionStyle}>
-            <h2 style={sectionTitleStyle}>
-              {selectedDepartment.name} policy versions
-            </h2>
-            {policyError ? (
-              <ErrorBanner message={policyError} />
-            ) : (
-              <PolicyHistory policies={policies} />
-            )}
-          </section>
-
-          <section style={sectionStyle}>
-            <h2 style={sectionTitleStyle}>Create a version</h2>
-            <PolicyEditor departmentId={selectedDepartment.id} />
-          </section>
-        </>
-      )}
-
-      {orgId && !selectedDepartment && departments.length > 0 && (
-        <p style={{ color: "#6b7280" }}>
-          Select a department to review and edit its policies.
-        </p>
-      )}
+      <OrganizationSection
+        organizations={data.organizations}
+        organizationError={data.organizationError}
+        orgId={data.orgId}
+      />
+      <DepartmentSection
+        orgId={data.orgId}
+        departments={data.departments}
+        departmentError={data.departmentError}
+        selectedDepartment={data.selectedDepartment}
+      />
+      <PolicySections
+        selectedDepartment={data.selectedDepartment}
+        policies={data.policies}
+        policyError={data.policyError}
+      />
+      <DepartmentPrompt
+        orgId={data.orgId}
+        selectedDepartment={data.selectedDepartment}
+        departments={data.departments}
+      />
     </div>
   );
 }
