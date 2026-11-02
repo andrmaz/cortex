@@ -9,6 +9,24 @@ metadata:
     url: "https://github.com/humanlayer/skills/blob/main/plugins/show-me/skills/show-me/SKILL.md"
 ---
 
+## Attach QA screenshots
+
+After QA, use the workspace-relative screenshot paths recorded in its evidence table. For an existing PR you are authorized to edit, attach the relevant files with `gh pr edit` and repeated `--attach` flags:
+
+```sh
+gh pr edit "$PR_NUMBER" \
+  --attach "$BEFORE_SCREENSHOT#Before: settings page" \
+  --attach "$AFTER_SCREENSHOT#After: settings page"
+```
+
+Set each screenshot variable to the exact workspace-relative path from the QA evidence table. Check `gh pr edit --help` in the current environment first. Run the command without `--body` or `--body-file`: `--attach` appends the uploaded assets while keeping the existing PR body. Then reread the description:
+
+```sh
+gh pr view "$PR_NUMBER" --json body --jq .body
+```
+
+Verify that each screenshot is represented by a `user-attachments/assets/` URL and that its local path is not left in the body. If the body already referenced an attached path, `gh` rewrites that reference in place instead of adding another one; verify the rewritten URL at its original position. Claim only uploads verified in the reread body. If the installed CLI lacks `--attach`, or the host reports that attachments are unsupported, stop and report that limitation rather than replacing the body or implying an upload. Report authentication or authorization failures as blockers. A partial upload can update the PR and still exit non-zero; retain the command's status and stderr, inspect the updated body, and report only verified successes and the named failures.
+
 Use this template for writing the PR body:
 
 ```markdown

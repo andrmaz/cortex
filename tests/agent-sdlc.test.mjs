@@ -205,6 +205,28 @@ test("qa skill defines a Chrome DevTools walkthrough", async () => {
   assert.match(qa, /## QA walkthrough/);
 });
 
+test("qa skill saves UI screenshots at reusable paths and records them", async () => {
+  const qa = await readRepoFile(".agents/skills/qa/SKILL.md");
+  assert.match(qa, /\.tools\/qa-evidence\//);
+  assert.match(qa, /relative path/i);
+  assert.match(qa, /visually relevant/i);
+  assert.match(qa, /QA evidence/);
+});
+
+test("pr skill attaches QA screenshots without replacing the PR body", async () => {
+  const pr = await readRepoFile(".agents/skills/pr/SKILL.md");
+  assert.match(pr, /gh pr edit .*--attach/s);
+  assert.match(pr, /without `--body` or `--body-file`/);
+  assert.match(pr, /existing PR body/);
+  assert.match(pr, /gh pr view .*--json body/s);
+  assert.match(pr, /user-attachments\/assets/);
+  assert.match(pr, /local path is not left in the body/);
+  assert.match(pr, /rewrites that reference in place/);
+  assert.match(pr, /partial upload/i);
+  assert.match(pr, /unsupported|not supported/i);
+  assert.match(pr, /authentication|authorization/i);
+});
+
 const parseScenarios = (lifecycle) => {
   const section =
     lifecycle.split("### Activation scenarios")[1]?.split("\n## ")[0] ?? "";
