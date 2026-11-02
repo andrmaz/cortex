@@ -1,16 +1,11 @@
-import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-  vi,
-  type Mocked,
-} from "vitest";
+import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { Request } from "express";
+import { BadRequestException } from "@nestjs/common";
 import { MCPController } from "./mcp.controller";
 import { IdentityService } from "./identity.service";
+import { ContextBundleService } from "./context-bundle.service";
+import { RetrievalService } from "../retrieval/retrieval.service";
 import type { AuthenticatedUser } from "../auth/auth.types";
 
 type RequestWithJwtUser = Request & { user: AuthenticatedUser };
@@ -29,6 +24,7 @@ function makeReq(user: AuthenticatedUser = mockUser): RequestWithJwtUser {
 describe("MCPController", () => {
   let controller: MCPController;
   let identityService: Mocked<IdentityService>;
+  let retrieval: Mocked<RetrievalService>;
 
   beforeEach(() => {
     identityService = fromPartial<Mocked<IdentityService>>({
@@ -37,187 +33,78 @@ describe("MCPController", () => {
         departmentId: "dept_789",
       }),
     });
-
-    controller = new MCPController(identityService);
+    retrieval = fromPartial<Mocked<RetrievalService>>({
+      search: vi.fn<RetrievalService["search"]>().mockResolvedValue([
+        {
+          chunkId: "c1",
+          content: "We use a modular monolith.",
+          score: 0.92,
+          sourceRef: {
+            sourceId: "s1",
+            documentId: "d1",
+            fileName: "arch.txt",
+          },
+        },
+      ]),
+    });
+    controller = new MCPController(
+      identityService,
+      retrieval,
+      new ContextBundleService(),
+    );
   });
 
-  afterEach(() => {
-    vi.clearAllMocks();
+  it("resolves scope from the JWT user", async () => {
+    await controller.handleMCP({ query: "q" }, makeReq());
+
+    expect(identityService.resolveScope).toHaveBeenCalledWith(
+      "user_123",
+      "org_456",
+    );
   });
 
-  describe("handleMCP", () => {
-    it("returns a response with scope, context, policy, and answer", async () => {
-      const result = await controller.handleMCP(
-        { query: "What is the coding standard?" },
-        makeReq(),
-      );
+  it("searches only the caller's organization", async () => {
+    await controller.handleMCP({ query: " q " }, makeReq());
 
-      expect(result).toHaveProperty("scope");
-      expect(result).toHaveProperty("context");
-      expect(result).toHaveProperty("policy");
-      expect(result).toHaveProperty("answer");
-    });
+    expect(retrieval.search).toHaveBeenCalledWith("q", "org_456");
+  });
 
-    it("delegates identity resolution to IdentityService with userId and organizationId from req.user", async () => {
-      await controller.handleMCP({ query: "test" }, makeReq(mockUser));
+  it("returns retrieved context, citations and a grounded answer", async () => {
+    const result = await controller.handleMCP({ query: "arch?" }, makeReq());
 
-      expect(identityService.resolveScope).toHaveBeenCalledWith(
-        mockUser.id,
-        mockUser.organizationId,
-      );
-    });
+    expect(result.context).toEqual(["We use a modular monolith."]);
+    expect(result.citations).toEqual([
+      {
+        chunkId: "c1",
+        documentId: "d1",
+        sourceId: "s1",
+        fileName: "arch.txt",
+        score: 0.92,
+      },
+    ]);
+    expect(result.answer).toContain("We use a modular monolith.");
+    expect(result.scope.departmentId).toBe("dept_789");
+  });
 
-    it("includes the resolved organizationId and departmentId in scope", async () => {
-      identityService.resolveScope.mockResolvedValueOnce({
-        organizationId: "org_abc",
-        departmentId: "dept_xyz",
-      });
+  it("returns empty context and citations when nothing matches", async () => {
+    retrieval.search.mockResolvedValueOnce([]);
 
-      const result = await controller.handleMCP(
-        { query: "test" },
-        makeReq({ ...mockUser, organizationId: "org_abc" }),
-      );
+    const result = await controller.handleMCP({ query: "q" }, makeReq());
 
-      expect(result.scope).toEqual({
-        organizationId: "org_abc",
-        departmentId: "dept_xyz",
-      });
-    });
+    expect(result.context).toEqual([]);
+    expect(result.citations).toEqual([]);
+  });
 
-    it("returns null departmentId when user has no primary department", async () => {
-      identityService.resolveScope.mockResolvedValueOnce({
-        organizationId: "org_456",
-        departmentId: null,
-      });
+  it.each(["", "   "])("rejects blank query %j", async (query) => {
+    await expect(
+      controller.handleMCP({ query }, makeReq()),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(retrieval.search).not.toHaveBeenCalled();
+  });
 
-      const result = await controller.handleMCP({ query: "test" }, makeReq());
-
-      expect(result.scope.departmentId).toBeNull();
-    });
-
-    it("includes the query verbatim in the answer", async () => {
-      const result = await controller.handleMCP(
-        { query: "How do I structure my service layer?" },
-        makeReq(),
-      );
-
-      expect(result.answer).toBe(
-        "Based on company standards: How do I structure my service layer?",
-      );
-    });
-
-    it("prefixes the answer with 'Based on company standards: '", async () => {
-      const result = await controller.handleMCP(
-        { query: "any question" },
-        makeReq(),
-      );
-
-      expect(result.answer).toMatch(/^Based on company standards: /);
-    });
-
-    it("returns the stub context array", async () => {
-      const result = await controller.handleMCP({ query: "test" }, makeReq());
-
-      expect(result.context).toEqual([
-        "Company uses modular monolith architecture",
-        "No direct DB access from controllers",
-      ]);
-    });
-
-    it("returns the stub policy with TypeScript and clean architecture rules", async () => {
-      const result = await controller.handleMCP({ query: "test" }, makeReq());
-
-      expect(result.policy).toEqual({
-        rules: ["Use TypeScript", "Follow clean architecture"],
-      });
-    });
-
-    it("returns a Promise (async method)", () => {
-      const returnValue = controller.handleMCP({ query: "test" }, makeReq());
-
-      expect(returnValue).toBeInstanceOf(Promise);
-    });
-
-    it("handles an empty query string", async () => {
-      const result = await controller.handleMCP({ query: "" }, makeReq());
-
-      expect(result.answer).toBe("Based on company standards: ");
-      expect(result.context).toHaveLength(2);
-      expect(result.policy.rules).toHaveLength(2);
-    });
-
-    it("handles a query with special characters", async () => {
-      const specialQuery = 'What about "quotes" & <angle> brackets?';
-      const result = await controller.handleMCP(
-        { query: specialQuery },
-        makeReq(),
-      );
-
-      expect(result.answer).toBe(`Based on company standards: ${specialQuery}`);
-    });
-
-    it("calls resolveScope once per request", async () => {
-      await controller.handleMCP({ query: "a" }, makeReq());
-      await controller.handleMCP({ query: "b" }, makeReq());
-
-      expect(identityService.resolveScope).toHaveBeenCalledTimes(2);
-    });
-
-    it("passes different users to resolveScope correctly", async () => {
-      const userA: AuthenticatedUser = {
-        id: "user_aaa",
-        email: "a@example.com",
-        organizationId: "org_111",
-        role: "member",
-      };
-      const userB: AuthenticatedUser = {
-        id: "user_bbb",
-        email: "b@example.com",
-        organizationId: "org_222",
-        role: "admin",
-      };
-
-      await controller.handleMCP({ query: "q" }, makeReq(userA));
-      await controller.handleMCP({ query: "q" }, makeReq(userB));
-
-      expect(identityService.resolveScope).toHaveBeenNthCalledWith(
-        1,
-        "user_aaa",
-        "org_111",
-      );
-      expect(identityService.resolveScope).toHaveBeenNthCalledWith(
-        2,
-        "user_bbb",
-        "org_222",
-      );
-    });
-
-    it("returns answer as a string", async () => {
-      const result = await controller.handleMCP({ query: "test" }, makeReq());
-
-      expect(typeof result.answer).toBe("string");
-    });
-
-    it("returns context as an array of strings", async () => {
-      const result = await controller.handleMCP({ query: "test" }, makeReq());
-
-      result.context.forEach((item) => expect(typeof item).toBe("string"));
-    });
-
-    it("returns policy rules as an array of strings", async () => {
-      const result = await controller.handleMCP({ query: "test" }, makeReq());
-
-      result.policy.rules.forEach((rule) => expect(typeof rule).toBe("string"));
-    });
-
-    it("handles a very long query string", async () => {
-      const longQuery = "A".repeat(10000);
-      const result = await controller.handleMCP(
-        { query: longQuery },
-        makeReq(),
-      );
-
-      expect(result.answer).toBe(`Based on company standards: ${longQuery}`);
-    });
+  it("rejects a missing query", async () => {
+    await expect(
+      controller.handleMCP(fromAny({}), makeReq()),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

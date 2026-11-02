@@ -18,6 +18,7 @@ import { AuthModule } from "../auth/auth.module";
 import { PrismaService } from "../prisma/prisma.service";
 import { GoogleStrategy } from "../auth/strategies/google.strategy";
 import { OrgContextInterceptor } from "../common/org-context.interceptor";
+import { RetrievalService } from "../retrieval/retrieval.service";
 
 const TEST_JWT_SECRET = "test-secret-for-mcp-integration";
 
@@ -25,6 +26,8 @@ const TEST_JWT_SECRET = "test-secret-for-mcp-integration";
 class MockGoogleStrategy {
   name = "google";
 }
+
+const mockRetrieval = { search: vi.fn() };
 
 const mockPrisma = {
   $connect: vi.fn().mockResolvedValue(undefined),
@@ -65,6 +68,8 @@ describe("MCP Integration", () => {
     })
       .overrideProvider(GoogleStrategy)
       .useClass(MockGoogleStrategy)
+      .overrideProvider(RetrievalService)
+      .useValue(mockRetrieval)
       .overrideProvider(PrismaService)
       .useValue(mockPrisma)
       .compile();
@@ -84,6 +89,7 @@ describe("MCP Integration", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRetrieval.search.mockResolvedValue([]);
   });
 
   describe("authenticated happy path", () => {
@@ -113,8 +119,8 @@ describe("MCP Integration", () => {
           organizationId: "org_456",
           departmentId: "dept_789",
         },
-        answer: "Based on company standards: What are the coding standards?",
       });
+      expect(response.body.answer).toContain("What are the coding standards?");
       expect(Array.isArray(response.body.context)).toBe(true);
       expect(Array.isArray(response.body.policy.rules)).toBe(true);
     });
@@ -262,8 +268,14 @@ describe("MCP Integration", () => {
         organizationId: "org_b",
         departmentId: "dept_b",
       });
-      expect(resA.body.answer).toContain("query from org A");
-      expect(resB.body.answer).toContain("query from org B");
+      expect(mockRetrieval.search).toHaveBeenCalledWith(
+        "query from org A",
+        "org_a",
+      );
+      expect(mockRetrieval.search).toHaveBeenCalledWith(
+        "query from org B",
+        "org_b",
+      );
     });
 
     it("never returns another organization's departmentId even if that org's row is isPrimary in the same result set", async () => {
