@@ -175,7 +175,8 @@ model Policy {
   id             String   @id @default(uuid())
   version        Int      @default(1)
   rulesJson      Json     @map("rules_json")
-  isActive       Boolean  @default(true) @map("is_active")
+  /// At most one active version per department; enforced by a partial index migration.
+  isActive       Boolean  @default(false) @map("is_active")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   organizationId String   @map("organization_id")

@@ -72,6 +72,14 @@ export default async function DepartmentsPage({ searchParams }: PageProps) {
         />
       )}
 
+      {orgId && (
+        <p style={{ marginTop: "-12px", marginBottom: "24px" }}>
+          <a href={`/admin/policies?orgId=${encodeURIComponent(orgId)}`}>
+            Manage policies
+          </a>
+        </p>
+      )}
+
       {orgId ? (
         <>
           <section style={sectionStyle}>
