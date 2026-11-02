@@ -112,27 +112,32 @@ function deleteConfirmation(
     : { error: "Confirm deletion before continuing." };
 }
 
-function resultError(result: Result<unknown>): string | undefined {
-  return "error" in result ? result.error : undefined;
+function preparedMutation(
+  operation: PolicyOperation,
+  id: string | undefined,
+  body: unknown,
+): PreparedMutation {
+  const path =
+    id === undefined
+      ? ""
+      : `/${encodeURIComponent(id)}${routeSuffixes[operation]}`;
+  return { path, method: methods[operation], body };
 }
 
 function prepareMutation(
   operation: PolicyOperation,
   form: FormData,
 ): Result<PreparedMutation> {
-  const idResult = policyId(operation, form);
-  const body = policyBody(operation, form);
-  const confirmation = deleteConfirmation(operation, form);
-  const error =
-    resultError(idResult) ?? resultError(body) ?? resultError(confirmation);
-  if (error) return { error };
-  const selectedPolicyId = "value" in idResult ? idResult.value : undefined;
-  const requestBody = "value" in body ? body.value : undefined;
-  const path =
-    operation === "create"
-      ? ""
-      : `/${encodeURIComponent(selectedPolicyId ?? "")}${routeSuffixes[operation]}`;
-  return { value: { path, method: methods[operation], body: requestBody } };
+  const idAndBody = combineResults(
+    policyId(operation, form),
+    policyBody(operation, form),
+    (id, body) => ({ id, body }),
+  );
+  return combineResults(
+    idAndBody,
+    deleteConfirmation(operation, form),
+    ({ id, body }) => preparedMutation(operation, id, body),
+  );
 }
 
 async function responseError(response: Response): Promise<string> {
