@@ -23,6 +23,28 @@ export interface PolicyDocument {
   rules: PolicyRule[];
 }
 
+export interface PolicyMatch {
+  ruleId: string;
+  matchedCondition: {
+    field: "query" | "chunk.content";
+    operator: "contains";
+    value: string;
+    subjectId?: string;
+  };
+  effect: PolicyRule["effect"];
+  reasonCode?: string;
+  reason?: string;
+}
+
+export interface PolicyDecision {
+  policyId: string | null;
+  policyVersion: number | null;
+  decision: "allow" | "deny";
+  matchedRules: PolicyMatch[];
+  reasonCode: string | null;
+  reason: string | null;
+}
+
 function object(value: unknown, path: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${path} must be an object`);

@@ -119,8 +119,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     readonly organizationId: string;
     readonly embedding: readonly number[];
     readonly limit: number;
+    readonly allowedSourceIds?: readonly string[];
   }): Promise<ChunkSimilarityRow[]> {
-    const { organizationId, embedding, limit } = params;
+    const { organizationId, embedding, limit, allowedSourceIds } = params;
     invariant(
       embedding.length > 0,
       "query embedding must be a non-empty vector",
@@ -142,6 +143,11 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     }
 
     const vector = `[${embedding.join(",")}]`;
+    if (allowedSourceIds?.length === 0) return [];
+    const sourceFilter =
+      allowedSourceIds === undefined
+        ? Prisma.empty
+        : Prisma.sql`AND d."source_id" IN (${Prisma.join(allowedSourceIds)})`;
     return runWithoutOrgScope(() =>
       this.scoped.$queryRaw<ChunkSimilarityRow[]>(Prisma.sql`
         SELECT c."id" AS "chunkId",
@@ -156,6 +162,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
          AND d."organization_id" = c."organization_id"
         WHERE c."organization_id" = ${organizationId}
           AND c."embedding" IS NOT NULL
+          ${sourceFilter}
         ORDER BY c."embedding" <=> ${vector}::vector ASC, c."id" ASC
         LIMIT ${limit}
       `),
