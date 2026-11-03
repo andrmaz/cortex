@@ -35,6 +35,25 @@ const mockPrisma = {
   user: { findUnique: vi.fn() },
   organization: { findUnique: vi.fn() },
   userDepartment: { findFirst: vi.fn() },
+  policy: {
+    findFirst: vi
+      .fn()
+      .mockImplementation(
+        async ({
+          where,
+        }: {
+          where: { organizationId: string; departmentId: string };
+        }) => ({
+          id: `policy-${where.organizationId}`,
+          version: 1,
+          rulesJson: {
+            schemaVersion: 1,
+            allowedSourceIds: ["source-allowed"],
+            rules: [],
+          },
+        }),
+      ),
+  },
 };
 
 function issueToken(
@@ -122,7 +141,7 @@ describe("MCP Integration", () => {
       });
       expect(response.body.answer).toContain("What are the coding standards?");
       expect(Array.isArray(response.body.context)).toBe(true);
-      expect(Array.isArray(response.body.policy.rules)).toBe(true);
+      expect(response.body.policy.decision).toBe("allow");
     });
 
     it("resolves organizationId from JWT claim, not from request body", async () => {
@@ -271,10 +290,14 @@ describe("MCP Integration", () => {
       expect(mockRetrieval.search).toHaveBeenCalledWith(
         "query from org A",
         "org_a",
+        undefined,
+        ["source-allowed"],
       );
       expect(mockRetrieval.search).toHaveBeenCalledWith(
         "query from org B",
         "org_b",
+        undefined,
+        ["source-allowed"],
       );
     });
 
