@@ -1,17 +1,12 @@
 import { fileURLToPath } from "node:url";
-import swc from "unplugin-swc";
-import { defineConfig } from "vitest/config";
+import { mergeConfig } from "vitest/config";
+import base from "./vitest.base";
 
 const src = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
-export default defineConfig({
-  plugins: [swc.vite({ module: { type: "es6" } })],
+export default mergeConfig(base, {
   resolve: {
     alias: [
-      {
-        find: /^@cortex\/shared\/policy$/,
-        replacement: src("../../packages/shared/src/policy.ts"),
-      },
       {
         find: /^db\/client$/,
         replacement: src("../../packages/db/generated/prisma/client.ts"),

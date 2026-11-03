@@ -1,4 +1,3 @@
-// @ts-expect-error Native Node tests require the TypeScript extension.
 import { parsePolicyDraft } from "./editor-validation.ts";
 import type { PolicyActionState } from "./types";
 

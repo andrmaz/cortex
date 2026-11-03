@@ -1,22 +1,12 @@
 import { fileURLToPath } from "node:url";
-import swc from "unplugin-swc";
-import { configDefaults, defineConfig } from "vitest/config";
+import { configDefaults, mergeConfig } from "vitest/config";
+import base from "./vitest.base";
 
 const src = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
-export default defineConfig({
-  // esbuild does not emit decorator metadata, which Nest DI relies on.
-  plugins: [swc.vite({ module: { type: "es6" } })],
+export default mergeConfig(base, {
   resolve: {
     alias: [
-      {
-        find: /^@cortex\/shared\/policy$/,
-        replacement: src("../../packages/shared/src/policy.ts"),
-      },
-      {
-        find: /^@cortex\/shared$/,
-        replacement: src("../../packages/shared/src/index.ts"),
-      },
       {
         find: /^db\/client$/,
         replacement: src("./src/__mocks__/db-client.mock.ts"),

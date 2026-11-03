@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { fetchPolicies } from "./api";
 import { fetchSources } from "../sources/api";
 import { fetchOrganizations } from "../organizations/api";
@@ -66,8 +67,8 @@ function PolicySources({ sources }: { sources: Source[] }) {
   if (!sources.length) {
     return (
       <p>
-        No sources yet. <a href="/admin/sources">Register a source</a> to grant
-        retrieval access.
+        No sources yet. <Link href="/admin/sources">Register a source</Link> to
+        grant retrieval access.
       </p>
     );
   }
@@ -94,7 +95,7 @@ function PolicyCreation({
       <h2>Create a version</h2>
       {!departments.length ? (
         <p>
-          Create a <a href="/admin/departments">Department</a> before
+          Create a <Link href="/admin/departments">Department</Link> before
           configuring a Policy.
         </p>
       ) : (
@@ -220,7 +221,7 @@ function PolicyPageError({ error }: { error: unknown }) {
       <p role="alert" className={styles.error}>
         {error instanceof Error ? error.message : "Unable to load policies."}
       </p>
-      <a href="/admin/policies">Try again</a>
+      <Link href="/admin/policies">Try again</Link>
     </main>
   );
 }

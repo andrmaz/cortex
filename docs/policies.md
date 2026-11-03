@@ -79,16 +79,32 @@ doing so removes the concurrency backstop and requires rolling back callers too.
 
 Focused checks:
 
+- `pnpm dev` builds workspace dependencies before starting the API and Admin Web.
+  The `/policy` subpath exports compiled JavaScript, not a tracked build artifact.
 - `pnpm --filter @cortex/shared build` before package-local API/Web builds or
-  tests; the `/policy` subpath exports compiled JavaScript for API and Web consumers.
+  direct package-local development (which bypasses Turbo).
 - `pnpm --filter @cortex/shared test`: strict schema boundaries.
 - `pnpm --filter @cortex/api test:postgres`: real admin HTTP CRUD,
   validation-before-persistence, role/Organization isolation, concurrent version
   allocation/activation, and index enforcement. Uses unique fixtures and deletes
   only them.
-- `pnpm --filter @cortex/web test`: editor syntax/shape and action feedback.
+- `pnpm --filter @cortex/web test`: builds shared automatically, then checks
+  editor syntax/shape and action feedback, including on a clean checkout.
 - API/Web/shared/DB type checks, affected lint, and Web production build.
 
 The browser walkthrough should select a Department, submit malformed JSON and
 invalid rules, grant an existing Source ID, create/edit a draft, activate another
 version, deactivate and confirm deletion, and verify pending/error feedback.
+After saving an inactive version, verify its editor stays open and displays
+“Policy draft saved.” despite the updated timestamp. Activation/deactivation must
+retain their success feedback after revalidation while updating the active state.
+
+For the focus regression, focus the inactive editor's Save button and submit it
+with the keyboard. After the successful action and revalidation, verify the same
+button has focus, the article/textarea remain mounted, and the disclosure stays
+open. Also submit while the textarea has focus and verify focus stays there.
+During a slow save, move focus to another editor control or the Admin navigation:
+completion must not move focus back, even if that other control is then blurred.
+Failed saves and client validation errors must not trigger success-only focus
+restoration. Repeat successful saves and creation, and check that activation and
+deactivation still retain their feedback without focusing the JSON editor.

@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-// @ts-expect-error Native Node tests require the TypeScript extension.
 import { parsePolicyDraft } from "./editor-validation.ts";
-// @ts-expect-error Native Node tests require the TypeScript extension.
 import { mutatePolicy } from "./policy-mutation.ts";
 
 const valid = JSON.stringify({

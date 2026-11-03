@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 // Node's native test runner resolves the TypeScript module with type stripping.
-// @ts-expect-error Node's native TypeScript resolution requires the .ts extension.
 import { startSourceStatusPolling } from "./source-status-polling.ts";
 
 test("refreshes source statuses on an interval and stops after cleanup", async () => {

@@ -1,6 +1,13 @@
 "use client";
 
-import { useActionState, useId, useState, type FormEvent } from "react";
+import {
+  useActionState,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import type { Department } from "../departments/types";
 import type { Policy, PolicyActionState } from "./types";
 import { savePolicyAction, lifecyclePolicyAction } from "./actions";
@@ -104,6 +111,56 @@ function saveButtonLabel(pending: boolean, editing: boolean): string {
   return editing ? "Save inactive version" : "Create inactive version";
 }
 
+function canRestoreSubmittedControlFocus(control: HTMLElement): boolean {
+  return (
+    document.hasFocus() &&
+    (document.activeElement === document.body ||
+      document.activeElement === control)
+  );
+}
+
+function restoreSubmittedControlFocus(control: HTMLElement | null): void {
+  if (control?.isConnected && canRestoreSubmittedControlFocus(control)) {
+    control.focus({ preventScroll: true });
+  }
+}
+
+function useEditorFocus(state: PolicyActionState, pending: boolean) {
+  const submittedControl = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const cancelRestoration = (event: FocusEvent) => {
+      if (event.target !== submittedControl.current) {
+        submittedControl.current = null;
+      }
+    };
+    document.addEventListener("focusin", cancelRestoration);
+    return () => document.removeEventListener("focusin", cancelRestoration);
+  }, []);
+
+  useEffect(() => {
+    if (pending) return;
+    const control = submittedControl.current;
+    submittedControl.current = null;
+    // The action result and revalidated tree have committed; disabled submit
+    // buttons can now regain focus, unless the user chose another control.
+    if (state.message) {
+      restoreSubmittedControlFocus(control);
+    }
+  }, [pending, state]);
+
+  return (event: FormEvent<HTMLFormElement>) => {
+    const form = event.currentTarget;
+    const active = document.activeElement;
+    submittedControl.current =
+      !event.defaultPrevented &&
+      active instanceof HTMLElement &&
+      form.contains(active)
+        ? active
+        : null;
+  };
+}
+
 export function PolicyEditor({
   departments,
   policy,
@@ -120,11 +177,15 @@ export function PolicyEditor({
     savePolicyAction,
     initialState,
   );
+  const captureFocus = useEditorFocus(state, pending);
   return (
     <form
       action={action}
       className={styles.form}
-      onSubmit={(event) => validateDraft(event, draft, setValidation)}
+      onSubmit={(event) => {
+        validateDraft(event, draft, setValidation);
+        captureFocus(event);
+      }}
     >
       <DepartmentField policy={policy} departments={departments} id={id} />
       <label htmlFor={`${id}-rules`}>Policy JSON</label>

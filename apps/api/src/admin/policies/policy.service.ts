@@ -74,6 +74,25 @@ export class PolicyService {
     });
   }
 
+  private async inPolicy<T>(
+    organizationId: string,
+    id: string,
+    operation: (tx: Prisma.TransactionClient, policy: Policy) => Promise<T>,
+  ): Promise<T> {
+    const existing = await this.find(organizationId, id);
+    return this.inDepartment(
+      organizationId,
+      existing.departmentId,
+      async (tx) => {
+        const policy = await tx.policy.findFirst({
+          where: { id, organizationId },
+        });
+        if (!policy) throw new NotFoundException("Policy not found");
+        return operation(tx, policy);
+      },
+    );
+  }
+
   async create(
     organizationId: string,
     departmentId: string,
@@ -104,45 +123,25 @@ export class PolicyService {
     input: unknown,
   ): Promise<Policy> {
     const doc = this.validate(input);
-    const existing = await this.find(organizationId, id);
-    return this.inDepartment(
-      organizationId,
-      existing.departmentId,
-      async (tx) => {
-        const policy = await tx.policy.findFirst({
-          where: { id, organizationId },
-        });
-        if (!policy) throw new NotFoundException("Policy not found");
-        if (policy.isActive)
-          throw new ConflictException(
-            "Deactivate the policy before editing it, or create a new version",
-          );
-        await this.validateSources(tx, organizationId, doc);
-        return tx.policy.update({
-          where: { id, organizationId },
-          data: { rulesJson: doc as unknown as Prisma.InputJsonValue },
-        });
-      },
-    );
+    return this.inPolicy(organizationId, id, async (tx, policy) => {
+      if (policy.isActive)
+        throw new ConflictException(
+          "Deactivate the policy before editing it, or create a new version",
+        );
+      await this.validateSources(tx, organizationId, doc);
+      return tx.policy.update({
+        where: { id, organizationId },
+        data: { rulesJson: doc as unknown as Prisma.InputJsonValue },
+      });
+    });
   }
 
   async remove(organizationId: string, id: string): Promise<void> {
-    const existing = await this.find(organizationId, id);
-    await this.inDepartment(
-      organizationId,
-      existing.departmentId,
-      async (tx) => {
-        const policy = await tx.policy.findFirst({
-          where: { id, organizationId },
-        });
-        if (!policy) throw new NotFoundException("Policy not found");
-        if (policy.isActive)
-          throw new ConflictException(
-            "Deactivate the policy before deleting it",
-          );
-        await tx.policy.delete({ where: { id, organizationId } });
-      },
-    );
+    await this.inPolicy(organizationId, id, async (tx, policy) => {
+      if (policy.isActive)
+        throw new ConflictException("Deactivate the policy before deleting it");
+      await tx.policy.delete({ where: { id, organizationId } });
+    });
   }
 
   async setActive(
@@ -150,35 +149,26 @@ export class PolicyService {
     id: string,
     active: boolean,
   ): Promise<Policy> {
-    const existing = await this.find(organizationId, id);
-    return this.inDepartment(
-      organizationId,
-      existing.departmentId,
-      async (tx) => {
-        const policy = await tx.policy.findFirst({
-          where: { id, organizationId },
-        });
-        if (!policy) throw new NotFoundException("Policy not found");
-        if (active) {
-          await this.validateSources(
-            tx,
+    return this.inPolicy(organizationId, id, async (tx, policy) => {
+      if (active) {
+        await this.validateSources(
+          tx,
+          organizationId,
+          this.validate(policy.rulesJson),
+        );
+        await tx.policy.updateMany({
+          where: {
             organizationId,
-            this.validate(policy.rulesJson),
-          );
-          await tx.policy.updateMany({
-            where: {
-              organizationId,
-              departmentId: existing.departmentId,
-              isActive: true,
-            },
-            data: { isActive: false },
-          });
-        }
-        return tx.policy.update({
-          where: { id, organizationId },
-          data: { isActive: active },
+            departmentId: policy.departmentId,
+            isActive: true,
+          },
+          data: { isActive: false },
         });
-      },
-    );
+      }
+      return tx.policy.update({
+        where: { id, organizationId },
+        data: { isActive: active },
+      });
+    });
   }
 }
