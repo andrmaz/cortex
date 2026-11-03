@@ -27,7 +27,27 @@ export default async function AdminLayout({
     throw err;
   }
 
-  return children;
+  return (
+    <>
+      <nav
+        aria-label="Admin"
+        style={{
+          padding: "16px 24px",
+          display: "flex",
+          gap: "16px",
+          flexWrap: "wrap",
+          fontFamily: "system-ui, sans-serif",
+        }}
+      >
+        <a href="/admin/organizations">Organizations</a>
+        <a href="/admin/departments">Departments</a>
+        <a href="/admin/users">Users</a>
+        <a href="/admin/sources">Sources</a>
+        <a href="/admin/policies">Policies</a>
+      </nav>
+      {children}
+    </>
+  );
 }
 
 const gateStyle: CSSProperties = {

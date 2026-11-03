@@ -1,0 +1,130 @@
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  font-family: system-ui, sans-serif;
+  color: var(--foreground);
+}
+.page h1 {
+  font-size: 24px;
+  margin: 0 0 8px;
+}
+.page h2 {
+  font-size: 19px;
+  margin: 0 0 20px;
+}
+.page h3 {
+  font-size: 16px;
+}
+.page section {
+  margin-top: 40px;
+}
+.page a {
+  color: #1d4ed8;
+}
+@media (prefers-color-scheme: dark) {
+  .page a {
+    color: #93c5fd;
+  }
+}
+.page summary {
+  cursor: pointer;
+  padding: 12px 0;
+}
+.page button,
+.page select {
+  font: inherit;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
+.page button {
+  background: #f8fafc;
+  color: #111827;
+  cursor: pointer;
+}
+.page button:hover {
+  background: #e2e8f0;
+}
+.page button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.page :focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+.form {
+  display: grid;
+  gap: 12px;
+}
+.form select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  background: white;
+  color: #111827;
+}
+.form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 12px;
+  font: 14px/1.5 monospace;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  background: white;
+  color: #111827;
+}
+.form button {
+  justify-self: start;
+}
+.help {
+  color: #475569;
+  margin: 0;
+  font-size: 14px;
+  max-width: 70ch;
+}
+@media (prefers-color-scheme: dark) {
+  .help {
+    color: #cbd5e1;
+  }
+}
+.error {
+  color: #991b1b;
+  background: #fef2f2;
+  padding: 12px;
+  border: 1px solid #fecaca;
+}
+.version {
+  border-top: 1px solid #cbd5e1;
+  padding: 16px 0;
+}
+.lifecycle {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.lifecycle label {
+  font-size: 14px;
+}
+.example {
+  overflow-x: auto;
+  padding: 12px;
+  background: #f8fafc;
+  color: #111827;
+  font-size: 13px;
+}
+.page code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .page {
+    padding: 24px 16px;
+  }
+  .lifecycle {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
