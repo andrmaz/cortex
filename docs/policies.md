@@ -66,6 +66,26 @@ is literal text). There is no explicit allow effect or metadata predicate.
 Limits: 100 rules, 1000 Source IDs, 1000 characters per condition/message/replacement,
 100 per rule ID/reason code, and 200 per Source ID.
 
+## MCP runtime enforcement
+
+Each MCP request resolves the caller's Primary Department and loads that
+Department's active Policy. Requests fail closed when no Department or active
+Policy exists, or when the stored Policy cannot be parsed. Query-deny rules run
+before retrieval. The Policy's exact `allowedSourceIds` list is applied in the
+similarity query before ranking and the top-k limit; an empty list returns no
+Chunks. Retrieved Chunks are checked against the list again before response
+assembly.
+
+Chunk-content deny rules suppress the complete Context Bundle. Redact rules
+replace literal, case-insensitive matches in Chunk content and associated file
+names. Every request receives a structured Policy Decision with its Policy
+version and matched rules on request context and in the MCP response. For
+fail-closed denials caused by a missing Department, missing active Policy, or
+invalid stored Policy, `policyId` and `policyVersion` are `null`,
+`matchedRules` is empty, and the decision includes the applicable reason code
+and message. Denials include their configured reason code and message; a denied
+response contains no retrieved context or citations.
+
 ## Migration and verification
 
 Migration `0007_single_active_policy` adds the partial unique index and changes

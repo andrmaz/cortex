@@ -2,10 +2,12 @@ import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { Request } from "express";
 import { BadRequestException } from "@nestjs/common";
+import type { PolicyDecision } from "@cortex/shared/policy";
 import { MCPController } from "./mcp.controller";
 import { IdentityService } from "./identity.service";
 import { ContextBundleService } from "./context-bundle.service";
-import { RetrievalService } from "../retrieval/retrieval.service";
+import { PolicyRuntimeService } from "../policy/policy-runtime.service";
+import type { RetrievedChunk } from "../retrieval/retrieval.service";
 import type { AuthenticatedUser } from "../auth/auth.types";
 
 type RequestWithJwtUser = Request & { user: AuthenticatedUser };
@@ -24,32 +26,45 @@ function makeReq(user: AuthenticatedUser = mockUser): RequestWithJwtUser {
 describe("MCPController", () => {
   let controller: MCPController;
   let identityService: Mocked<IdentityService>;
-  let retrieval: Mocked<RetrievalService>;
+  let policies: Mocked<PolicyRuntimeService>;
+  let chunks: RetrievedChunk[];
+
+  const allowed: PolicyDecision = {
+    policyId: "policy_1",
+    policyVersion: 1,
+    decision: "allow",
+    matchedRules: [],
+    reasonCode: null,
+    reason: null,
+  };
 
   beforeEach(() => {
+    chunks = [
+      {
+        chunkId: "c1",
+        content: "We use a modular monolith.",
+        score: 0.92,
+        sourceRef: {
+          sourceId: "s1",
+          documentId: "d1",
+          fileName: "arch.txt",
+        },
+      },
+    ];
     identityService = fromPartial<Mocked<IdentityService>>({
       resolveScope: vi.fn<IdentityService["resolveScope"]>().mockResolvedValue({
         organizationId: "org_456",
         departmentId: "dept_789",
       }),
     });
-    retrieval = fromPartial<Mocked<RetrievalService>>({
-      search: vi.fn<RetrievalService["search"]>().mockResolvedValue([
-        {
-          chunkId: "c1",
-          content: "We use a modular monolith.",
-          score: 0.92,
-          sourceRef: {
-            sourceId: "s1",
-            documentId: "d1",
-            fileName: "arch.txt",
-          },
-        },
-      ]),
+    policies = fromPartial<Mocked<PolicyRuntimeService>>({
+      evaluate: vi
+        .fn<PolicyRuntimeService["evaluate"]>()
+        .mockImplementation(async () => ({ chunks, decision: allowed })),
     });
     controller = new MCPController(
       identityService,
-      retrieval,
+      policies,
       new ContextBundleService(),
     );
   });
@@ -63,10 +78,13 @@ describe("MCPController", () => {
     );
   });
 
-  it("searches only the caller's organization", async () => {
+  it("evaluates policy with the resolved caller scope", async () => {
     await controller.handleMCP({ query: " q " }, makeReq());
 
-    expect(retrieval.search).toHaveBeenCalledWith("q", "org_456");
+    expect(policies.evaluate).toHaveBeenCalledWith(
+      { organizationId: "org_456", departmentId: "dept_789" },
+      "q",
+    );
   });
 
   it("returns retrieved context, citations and a grounded answer", async () => {
@@ -87,7 +105,7 @@ describe("MCPController", () => {
   });
 
   it("returns empty context and citations when nothing matches", async () => {
-    retrieval.search.mockResolvedValueOnce([]);
+    chunks = [];
 
     const result = await controller.handleMCP({ query: "q" }, makeReq());
 
@@ -99,7 +117,7 @@ describe("MCPController", () => {
     await expect(
       controller.handleMCP({ query }, makeReq()),
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(retrieval.search).not.toHaveBeenCalled();
+    expect(policies.evaluate).not.toHaveBeenCalled();
   });
 
   it("rejects a missing query", async () => {

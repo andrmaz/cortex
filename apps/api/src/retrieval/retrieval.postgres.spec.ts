@@ -159,6 +159,71 @@ describe("retrieval against PostgreSQL and pgvector", () => {
     }
   });
 
+  it("filters allowed Sources in SQL before applying top-k", async () => {
+    const fixture = fixtures[0];
+    expect(fixture).toBeDefined();
+    if (!fixture) {
+      throw new Error("Expected an Organization fixture");
+    }
+
+    const disallowedSourceId = randomUUID();
+    const disallowedDocumentId = randomUUID();
+    const disallowedChunkId = randomUUID();
+    await runWithOrgContext(fixture.organizationId, async () => {
+      await prisma.source.create({
+        data: {
+          id: disallowedSourceId,
+          organizationId: fixture.organizationId,
+          name: "Restricted handbook",
+          type: "upload",
+        },
+      });
+      await prisma.document.create({
+        data: {
+          id: disallowedDocumentId,
+          organizationId: fixture.organizationId,
+          sourceId: disallowedSourceId,
+          content: "Restricted content",
+          metadata: { fileName: "restricted.txt" },
+        },
+      });
+      await prisma.chunk.create({
+        data: {
+          id: disallowedChunkId,
+          organizationId: fixture.organizationId,
+          documentId: disallowedDocumentId,
+          content: "Highest scoring restricted content",
+        },
+      });
+      await prisma.writeChunkEmbeddings([
+        {
+          chunkId: disallowedChunkId,
+          organizationId: fixture.organizationId,
+          embedding: vector(0, 1),
+        },
+      ]);
+    });
+    embedMany
+      .mockResolvedValueOnce([vector(0, 1)])
+      .mockResolvedValueOnce([vector(0, 1)]);
+
+    const unfiltered = await retrieval.search(
+      "source filter top-k query",
+      fixture.organizationId,
+      1,
+    );
+    const filtered = await retrieval.search(
+      "source filter top-k query",
+      fixture.organizationId,
+      1,
+      [fixture.sourceId],
+    );
+
+    expect(unfiltered[0]?.chunkId).toBe(disallowedChunkId);
+    expect(filtered.map((row) => row.chunkId)).toEqual([fixture.nearId]);
+    expect(filtered[0]?.sourceRef.sourceId).toBe(fixture.sourceId);
+  });
+
   it("rejects a conflicting authenticated Organization before embedding", async () => {
     const [first, second] = fixtures;
     expect(first).toBeDefined();

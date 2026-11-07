@@ -18,6 +18,7 @@ class MockPrismaService {
   user = { findUnique: vi.fn(), create: vi.fn() };
   organization = { findFirst: vi.fn() };
   userDepartment = { findFirst: vi.fn().mockResolvedValue(null) };
+  policy = { findFirst: vi.fn() };
   searchChunksBySimilarity = vi.fn().mockResolvedValue([]);
 }
 
@@ -100,7 +101,9 @@ describe("AppModule", () => {
       makeMockReq(),
     );
 
-    expect(response.answer).toContain("No relevant context found");
+    expect(response.policy.decision).toBe("deny");
+    expect(response.policy.reasonCode).toBe("POLICY_NO_DEPARTMENT");
+    expect(response.answer).toBe("A Primary Department is required.");
     expect(response.citations).toEqual([]);
   });
 });

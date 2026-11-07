@@ -57,7 +57,43 @@ function makeFakePrisma() {
   const prisma = {
     $connect: vi.fn(),
     $disconnect: vi.fn(),
-    userDepartment: { findFirst: vi.fn().mockResolvedValue(null) },
+    userDepartment: {
+      findFirst: vi
+        .fn()
+        .mockImplementation(
+          async ({
+            where,
+          }: {
+            where: { userId: string; department: { organizationId: string } };
+          }) => ({
+            id: "user-department",
+            userId: where.userId,
+            departmentId: `dept-${where.department.organizationId}`,
+            isPrimary: true,
+          }),
+        ),
+    },
+    policy: {
+      findFirst: vi
+        .fn()
+        .mockImplementation(
+          async ({
+            where,
+          }: {
+            where: { organizationId: string; departmentId: string };
+          }) => ({
+            id: `policy-${where.organizationId}`,
+            version: 1,
+            rulesJson: {
+              schemaVersion: 1,
+              allowedSourceIds: [
+                where.organizationId === "org_a" ? "src-a" : "src-b",
+              ],
+              rules: [],
+            },
+          }),
+        ),
+    },
     source: {
       findUnique: vi.fn().mockImplementation(async ({ where }) => ({
         id: where.id,
@@ -113,10 +149,21 @@ function makeFakePrisma() {
           organizationId: string;
           embedding: number[];
           limit: number;
+          allowedSourceIds?: readonly string[];
         }) => {
           expect(getOrgContext()).toEqual({ organizationId: p.organizationId });
           return chunks
-            .filter((c) => c.organizationId === p.organizationId && c.embedding)
+            .filter(
+              (c) =>
+                c.organizationId === p.organizationId &&
+                c.embedding &&
+                docs.some(
+                  (doc) =>
+                    doc.id === c.documentId &&
+                    (p.allowedSourceIds === undefined ||
+                      p.allowedSourceIds.includes(doc.sourceId)),
+                ),
+            )
             .map((c) => {
               const doc = docs.find((d) => d.id === c.documentId)!;
               return {

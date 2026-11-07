@@ -33,9 +33,9 @@ export class ContextBundleService {
   }
 
   /** Deterministic cited answer grounded only in the bundle. */
-  composeAnswer(query: string, bundle: ContextBundle): string {
+  composeAnswer(bundle: ContextBundle): string {
     if (bundle.chunks.length === 0) {
-      return `No relevant context found for: ${query}`;
+      return "No relevant context found.";
     }
     const lines = bundle.chunks.map((chunk, i) => {
       const label = bundle.citations[i]?.fileName ?? chunk.sourceRef.documentId;

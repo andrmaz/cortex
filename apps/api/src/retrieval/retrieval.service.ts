@@ -39,6 +39,7 @@ export class RetrievalService {
     query: string,
     organizationId: string,
     topK: number = DEFAULT_TOP_K,
+    allowedSourceIds?: readonly string[],
   ): Promise<RetrievedChunk[]> {
     const context = getOrgContext();
     if (
@@ -54,6 +55,7 @@ export class RetrievalService {
       throw new Error("query must not be empty");
     }
     const limit = Math.min(Math.max(Math.floor(topK), 1), MAX_TOP_K);
+    if (allowedSourceIds?.length === 0) return [];
 
     const [embedding] = await this.embeddings.embedMany([text]);
     if (!embedding) {
@@ -67,6 +69,7 @@ export class RetrievalService {
         organizationId,
         embedding,
         limit,
+        ...(allowedSourceIds !== undefined ? { allowedSourceIds } : {}),
       });
       return rows.map((row) => {
         const fileName = fileNameOf(row.documentMetadata);

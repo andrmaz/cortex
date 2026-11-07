@@ -6,7 +6,8 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
-import { RetrievalService } from "../retrieval/retrieval.service";
+import type { PolicyDecision } from "@cortex/shared/policy";
+import { PolicyRuntimeService } from "../policy/policy-runtime.service";
 import { ContextBundleService } from "./context-bundle.service";
 import type { Citation } from "./context-bundle.service";
 import type { Request } from "express";
@@ -23,21 +24,20 @@ interface MCPResponse {
   scope: ResolvedScope;
   context: string[];
   citations: readonly Citation[];
-  policy: {
-    rules: string[];
-  };
+  policy: PolicyDecision;
   answer: string;
 }
 
-interface RequestWithJwtUser extends Request {
+export interface RequestWithJwtUser extends Request {
   user: AuthenticatedUser;
+  policyDecision?: PolicyDecision;
 }
 
 @Controller("mcp")
 export class MCPController {
   constructor(
     private readonly identityService: IdentityService,
-    private readonly retrieval: RetrievalService,
+    private readonly policies: PolicyRuntimeService,
     private readonly bundles: ContextBundleService,
   ) {}
 
@@ -58,21 +58,21 @@ export class MCPController {
       organizationId,
     );
 
-    // Stub policy – will be replaced with real policy evaluation in a later slice.
-    const policy = {
-      rules: ["Use TypeScript", "Follow clean architecture"],
-    };
-
-    // Org comes from the JWT only, never from the request body.
-    const chunks = await this.retrieval.search(query, organizationId);
+    const evaluation = await this.policies.evaluate(scope, query);
+    req.policyDecision = evaluation.decision;
+    const chunks =
+      evaluation.decision.decision === "deny" ? [] : evaluation.chunks;
     const bundle = this.bundles.assemble(chunks);
 
     return {
       scope,
       context: bundle.chunks.map((chunk) => chunk.content),
       citations: bundle.citations,
-      policy,
-      answer: this.bundles.composeAnswer(query, bundle),
+      policy: evaluation.decision,
+      answer:
+        evaluation.decision.decision === "deny"
+          ? (evaluation.decision.reason ?? "Request denied.")
+          : this.bundles.composeAnswer(bundle),
     };
   }
 }
