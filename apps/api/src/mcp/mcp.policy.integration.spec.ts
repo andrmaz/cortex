@@ -36,7 +36,7 @@ const rows = [
   },
 ];
 
-function setup(policyDocument: unknown) {
+function setup(policyDocument: unknown, searchRows = rows) {
   const findActivePolicy = vi
     .fn()
     .mockResolvedValue(
@@ -46,7 +46,7 @@ function setup(policyDocument: unknown) {
     );
   const searchChunks = vi.fn(
     async (params: { allowedSourceIds?: readonly string[] }) =>
-      rows.filter(
+      searchRows.filter(
         (row) =>
           params.allowedSourceIds === undefined ||
           params.allowedSourceIds.includes(row.sourceId),
@@ -117,6 +117,55 @@ describe("MCP policy request path", () => {
       "mask-secret",
     ]);
     expect(req.policyDecision).toBe(repeated.policy);
+  });
+
+  it("redacts a matching file name when the Chunk content does not match", async () => {
+    const { controller, req } = setup(
+      {
+        schemaVersion: 1,
+        allowedSourceIds: ["source-allowed"],
+        rules: [
+          {
+            id: "mask-secret",
+            when: { chunkContentContains: "secret" },
+            effect: "redact",
+            replacement: "[REDACTED]",
+          },
+        ],
+      },
+      [{ ...rows[0], content: "Quarterly planning notes." }],
+    );
+
+    const result = await controller.handleMCP({ query: "planning" }, req);
+
+    expect(result.context).toEqual(["Quarterly planning notes."]);
+    expect(result.citations[0]?.fileName).toBe("[REDACTED]-plan.txt");
+    expect(result.policy.matchedRules).toEqual([
+      expect.objectContaining({
+        ruleId: "mask-secret",
+        matchedCondition: expect.objectContaining({
+          field: "source.fileName",
+        }),
+      }),
+    ]);
+  });
+
+  it("does not echo a query when no permitted context is available", async () => {
+    const { controller, req } = setup({
+      schemaVersion: 1,
+      allowedSourceIds: [],
+      rules: [],
+    });
+
+    const result = await controller.handleMCP(
+      { query: "private query that must not be echoed" },
+      req,
+    );
+
+    expect(result.context).toEqual([]);
+    expect(result.citations).toEqual([]);
+    expect(result.answer).toBe("No relevant context found.");
+    expect(result.answer).not.toContain("private query");
   });
 
   it("denies a matching query before retrieval and attaches the decision", async () => {

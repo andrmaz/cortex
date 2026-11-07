@@ -26,7 +26,7 @@ export interface PolicyDocument {
 export interface PolicyMatch {
   ruleId: string;
   matchedCondition: {
-    field: "query" | "chunk.content";
+    field: "query" | "chunk.content" | "source.fileName";
     operator: "contains";
     value: string;
     subjectId?: string;

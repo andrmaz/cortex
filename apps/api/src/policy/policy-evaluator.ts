@@ -84,17 +84,36 @@ export function evaluateChunkPolicy(
     for (const rule of document.rules) {
       if (!("chunkContentContains" in rule.when)) continue;
       const pattern = literalPattern(rule.when.chunkContentContains);
-      if (!pattern.test(chunk.content)) continue;
-      matchedRules.push(toPolicyMatch(rule, "chunk.content", chunk.chunkId));
-      if (rule.effect !== "redact") continue;
-      content = content.replace(
-        literalPattern(rule.when.chunkContentContains, true),
-        () => rule.replacement,
+      const contentMatches = pattern.test(chunk.content);
+      if (rule.effect === "deny") {
+        if (contentMatches) {
+          matchedRules.push(
+            toPolicyMatch(rule, "chunk.content", chunk.chunkId),
+          );
+        }
+        continue;
+      }
+      const fileNameMatches = fileName !== undefined && pattern.test(fileName);
+      if (!contentMatches && !fileNameMatches) continue;
+      matchedRules.push(
+        toPolicyMatch(
+          rule,
+          contentMatches ? "chunk.content" : "source.fileName",
+          chunk.chunkId,
+        ),
       );
-      fileName = fileName?.replace(
-        literalPattern(rule.when.chunkContentContains, true),
-        () => rule.replacement,
-      );
+      if (contentMatches) {
+        content = content.replace(
+          literalPattern(rule.when.chunkContentContains, true),
+          () => rule.replacement,
+        );
+      }
+      if (fileNameMatches) {
+        fileName = fileName?.replace(
+          literalPattern(rule.when.chunkContentContains, true),
+          () => rule.replacement,
+        );
+      }
     }
     return {
       ...chunk,

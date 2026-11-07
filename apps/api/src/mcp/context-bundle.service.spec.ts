@@ -29,12 +29,13 @@ describe("ContextBundleService", () => {
       },
       { chunkId: "c2", documentId: "d2", sourceId: "s1", score: 0.5 },
     ]);
-    expect(service.composeAnswer("q", bundle)).toContain("[1] alpha (a.txt)");
+    expect(service.composeAnswer(bundle)).toContain("[1] alpha (a.txt)");
   });
 
   it("reports no context for an empty bundle", () => {
     const bundle = service.assemble([]);
     expect(bundle.citations).toEqual([]);
-    expect(service.composeAnswer("q", bundle)).toContain("No relevant context");
+    const answer = service.composeAnswer(bundle);
+    expect(answer).toBe("No relevant context found.");
   });
 });

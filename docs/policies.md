@@ -79,9 +79,12 @@ assembly.
 Chunk-content deny rules suppress the complete Context Bundle. Redact rules
 replace literal, case-insensitive matches in Chunk content and associated file
 names. Every request receives a structured Policy Decision with its Policy
-version and matched rules on request context and in the MCP response. Denials
-include their configured reason code and message; a denied response contains
-no retrieved context or citations.
+version and matched rules on request context and in the MCP response. For
+fail-closed denials caused by a missing Department, missing active Policy, or
+invalid stored Policy, `policyId` and `policyVersion` are `null`,
+`matchedRules` is empty, and the decision includes the applicable reason code
+and message. Denials include their configured reason code and message; a denied
+response contains no retrieved context or citations.
 
 ## Migration and verification
 

@@ -72,7 +72,7 @@ export class MCPController {
       answer:
         evaluation.decision.decision === "deny"
           ? (evaluation.decision.reason ?? "Request denied.")
-          : this.bundles.composeAnswer(query, bundle),
+          : this.bundles.composeAnswer(bundle),
     };
   }
 }

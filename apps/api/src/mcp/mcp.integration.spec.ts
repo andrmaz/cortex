@@ -139,7 +139,7 @@ describe("MCP Integration", () => {
           departmentId: "dept_789",
         },
       });
-      expect(response.body.answer).toContain("What are the coding standards?");
+      expect(response.body.answer).toBe("No relevant context found.");
       expect(Array.isArray(response.body.context)).toBe(true);
       expect(response.body.policy.decision).toBe("allow");
     });
