@@ -11,6 +11,19 @@ export interface PolicyEvaluation {
   decision: PolicyDecision;
 }
 
+interface ChunkState {
+  content: string;
+  fileName: string | undefined;
+  matchedRules: PolicyMatch[];
+}
+
+interface EvaluatedChunk {
+  chunk: RetrievedChunk;
+  matchedRules: PolicyMatch[];
+}
+
+type RedactRule = Extract<PolicyRule, { effect: "redact" }>;
+
 function literalPattern(value: string, global = false): RegExp {
   return new RegExp(
     value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
@@ -57,6 +70,87 @@ function createDecision(
   };
 }
 
+function recordDenyMatch(
+  chunk: RetrievedChunk,
+  rule: Extract<PolicyRule, { effect: "deny" }>,
+  contentMatches: boolean,
+  state: ChunkState,
+): void {
+  if (!contentMatches) return;
+  state.matchedRules.push(toPolicyMatch(rule, "chunk.content", chunk.chunkId));
+}
+
+function applyRedactRule(
+  chunk: RetrievedChunk,
+  rule: RedactRule,
+  value: string,
+  contentMatches: boolean,
+  state: ChunkState,
+): void {
+  const fileNameMatches =
+    state.fileName !== undefined && literalPattern(value).test(state.fileName);
+  if (!contentMatches && !fileNameMatches) return;
+  state.matchedRules.push(
+    toPolicyMatch(
+      rule,
+      contentMatches ? "chunk.content" : "source.fileName",
+      chunk.chunkId,
+    ),
+  );
+  if (contentMatches) {
+    state.content = state.content.replace(
+      literalPattern(value, true),
+      () => rule.replacement,
+    );
+  }
+  if (fileNameMatches) {
+    state.fileName = state.fileName?.replace(
+      literalPattern(value, true),
+      () => rule.replacement,
+    );
+  }
+}
+
+function applyChunkRule(
+  chunk: RetrievedChunk,
+  rule: PolicyRule,
+  state: ChunkState,
+): void {
+  if (!("chunkContentContains" in rule.when)) return;
+  const value = rule.when.chunkContentContains;
+  const contentMatches = literalPattern(value).test(chunk.content);
+  if (rule.effect === "deny") {
+    recordDenyMatch(chunk, rule, contentMatches, state);
+    return;
+  }
+  applyRedactRule(chunk, rule, value, contentMatches, state);
+}
+
+function evaluateChunkRules(
+  chunk: RetrievedChunk,
+  rules: readonly PolicyRule[],
+): EvaluatedChunk {
+  const state: ChunkState = {
+    content: chunk.content,
+    fileName: chunk.sourceRef.fileName,
+    matchedRules: [],
+  };
+  for (const rule of rules) {
+    applyChunkRule(chunk, rule, state);
+  }
+  return {
+    chunk: {
+      ...chunk,
+      content: state.content,
+      sourceRef: {
+        ...chunk.sourceRef,
+        ...(state.fileName !== undefined ? { fileName: state.fileName } : {}),
+      },
+    },
+    matchedRules: state.matchedRules,
+  };
+}
+
 export function evaluateQueryPolicy(
   policy: { id: string; version: number },
   document: PolicyDocument,
@@ -77,56 +171,18 @@ export function evaluateChunkPolicy(
   document: PolicyDocument,
   chunks: readonly RetrievedChunk[],
 ): PolicyEvaluation {
-  const matchedRules: PolicyMatch[] = [];
-  const safeChunks = chunks.map((chunk) => {
-    let content = chunk.content;
-    let fileName = chunk.sourceRef.fileName;
-    for (const rule of document.rules) {
-      if (!("chunkContentContains" in rule.when)) continue;
-      const pattern = literalPattern(rule.when.chunkContentContains);
-      const contentMatches = pattern.test(chunk.content);
-      if (rule.effect === "deny") {
-        if (contentMatches) {
-          matchedRules.push(
-            toPolicyMatch(rule, "chunk.content", chunk.chunkId),
-          );
-        }
-        continue;
-      }
-      const fileNameMatches = fileName !== undefined && pattern.test(fileName);
-      if (!contentMatches && !fileNameMatches) continue;
-      matchedRules.push(
-        toPolicyMatch(
-          rule,
-          contentMatches ? "chunk.content" : "source.fileName",
-          chunk.chunkId,
-        ),
-      );
-      if (contentMatches) {
-        content = content.replace(
-          literalPattern(rule.when.chunkContentContains, true),
-          () => rule.replacement,
-        );
-      }
-      if (fileNameMatches) {
-        fileName = fileName?.replace(
-          literalPattern(rule.when.chunkContentContains, true),
-          () => rule.replacement,
-        );
-      }
-    }
-    return {
-      ...chunk,
-      content,
-      sourceRef: {
-        ...chunk.sourceRef,
-        ...(fileName !== undefined ? { fileName } : {}),
-      },
-    };
-  });
+  const evaluatedChunks = chunks.map((chunk) =>
+    evaluateChunkRules(chunk, document.rules),
+  );
+  const matchedRules = evaluatedChunks.flatMap(
+    (evaluatedChunk) => evaluatedChunk.matchedRules,
+  );
   const result = createDecision(policy, matchedRules);
   return {
-    chunks: result.decision === "deny" ? [] : safeChunks,
+    chunks:
+      result.decision === "deny"
+        ? []
+        : evaluatedChunks.map((evaluatedChunk) => evaluatedChunk.chunk),
     decision: result,
   };
 }
