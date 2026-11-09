@@ -112,7 +112,7 @@ describe("MCP policy request path", () => {
     expect(result.context).toEqual(["The [REDACTED] launch date is tomorrow."]);
     expect(result.citations).toHaveLength(1);
     expect(JSON.stringify(result.citations)).not.toContain("secret");
-    expect(result.policy.decision).toBe("allow");
+    expect(result.policy.decision).toBe("redact");
     expect(result.policy.matchedRules.map((rule) => rule.ruleId)).toEqual([
       "mask-secret",
     ]);

@@ -1,6 +1,5 @@
 export type PolicyCondition =
-  | { queryContains: string }
-  | { chunkContentContains: string };
+  { queryContains: string } | { chunkContentContains: string };
 
 export type PolicyRule =
   | {
@@ -31,7 +30,7 @@ export interface PolicyMatch {
     value: string;
     subjectId?: string;
   };
-  effect: PolicyRule["effect"];
+  decision: PolicyRule["effect"];
   reasonCode?: string;
   reason?: string;
 }
@@ -39,7 +38,7 @@ export interface PolicyMatch {
 export interface PolicyDecision {
   policyId: string | null;
   policyVersion: number | null;
-  decision: "allow" | "deny";
+  decision: "allow" | "deny" | "redact";
   matchedRules: PolicyMatch[];
   reasonCode: string | null;
   reason: string | null;

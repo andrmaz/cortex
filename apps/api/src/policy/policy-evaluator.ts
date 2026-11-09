@@ -48,7 +48,7 @@ function toPolicyMatch(
       value,
       ...(subjectId !== undefined ? { subjectId } : {}),
     },
-    effect: rule.effect,
+    decision: rule.effect,
     ...(rule.effect === "deny"
       ? { reasonCode: rule.reasonCode, reason: rule.reason }
       : {}),
@@ -59,11 +59,12 @@ function createDecision(
   policy: { id: string; version: number },
   matchedRules: PolicyMatch[],
 ): PolicyDecision {
-  const denial = matchedRules.find((rule) => rule.effect === "deny");
+  const denial = matchedRules.find((rule) => rule.decision === "deny");
+  const redacted = matchedRules.some((rule) => rule.decision === "redact");
   return {
     policyId: policy.id,
     policyVersion: policy.version,
-    decision: denial ? "deny" : "allow",
+    decision: denial ? "deny" : redacted ? "redact" : "allow",
     matchedRules,
     reasonCode: denial?.reasonCode ?? null,
     reason: denial?.reason ?? null,
@@ -162,7 +163,7 @@ export function evaluateQueryPolicy(
       ? [toPolicyMatch(rule, "query")]
       : [];
   });
-  if (!matchedRules.some((rule) => rule.effect === "deny")) return undefined;
+  if (!matchedRules.some((rule) => rule.decision === "deny")) return undefined;
   return { chunks: [], decision: createDecision(policy, matchedRules) };
 }
 
@@ -174,8 +175,10 @@ export function evaluateChunkPolicy(
   const evaluatedChunks = chunks.map((chunk) =>
     evaluateChunkRules(chunk, document.rules),
   );
-  const matchedRules = evaluatedChunks.flatMap(
-    (evaluatedChunk) => evaluatedChunk.matchedRules,
+  const matchedRules = document.rules.flatMap((rule) =>
+    evaluatedChunks.flatMap((evaluatedChunk) =>
+      evaluatedChunk.matchedRules.filter((match) => match.ruleId === rule.id),
+    ),
   );
   const result = createDecision(policy, matchedRules);
   return {
