@@ -24,6 +24,7 @@ interface EvaluatedChunk {
 
 type RedactRule = Extract<PolicyRule, { effect: "redact" }>;
 
+/** Builds a case-insensitive literal (regex-escaped) matcher. */
 function literalPattern(value: string, global = false): RegExp {
   return new RegExp(
     value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
@@ -31,6 +32,7 @@ function literalPattern(value: string, global = false): RegExp {
   );
 }
 
+/** Creates a trace entry describing the configured condition, never the matched payload. */
 function toPolicyMatch(
   rule: PolicyRule,
   field: PolicyMatch["matchedCondition"]["field"],
@@ -48,28 +50,31 @@ function toPolicyMatch(
       value,
       ...(subjectId !== undefined ? { subjectId } : {}),
     },
-    effect: rule.effect,
+    decision: rule.effect,
     ...(rule.effect === "deny"
       ? { reasonCode: rule.reasonCode, reason: rule.reason }
       : {}),
   };
 }
 
+/** Builds the summary decision: deny takes precedence, then redact, else allow. */
 function createDecision(
   policy: { id: string; version: number },
   matchedRules: PolicyMatch[],
 ): PolicyDecision {
-  const denial = matchedRules.find((rule) => rule.effect === "deny");
+  const denial = matchedRules.find((rule) => rule.decision === "deny");
+  const redacted = matchedRules.some((rule) => rule.decision === "redact");
   return {
     policyId: policy.id,
     policyVersion: policy.version,
-    decision: denial ? "deny" : "allow",
+    decision: denial ? "deny" : redacted ? "redact" : "allow",
     matchedRules,
     reasonCode: denial?.reasonCode ?? null,
     reason: denial?.reason ?? null,
   };
 }
 
+/** Records a deny match for a Chunk whose content matched the rule. */
 function recordDenyMatch(
   chunk: RetrievedChunk,
   rule: Extract<PolicyRule, { effect: "deny" }>,
@@ -80,6 +85,7 @@ function recordDenyMatch(
   state.matchedRules.push(toPolicyMatch(rule, "chunk.content", chunk.chunkId));
 }
 
+/** Records a redact match and applies the replacement to content and file name. */
 function applyRedactRule(
   chunk: RetrievedChunk,
   rule: RedactRule,
@@ -111,6 +117,7 @@ function applyRedactRule(
   }
 }
 
+/** Dispatches a rule to its deny or redact handler when it targets Chunk content. */
 function applyChunkRule(
   chunk: RetrievedChunk,
   rule: PolicyRule,
@@ -126,6 +133,7 @@ function applyChunkRule(
   applyRedactRule(chunk, rule, value, contentMatches, state);
 }
 
+/** Applies every rule to one Chunk, returning a redacted copy and its ordered matches. */
 function evaluateChunkRules(
   chunk: RetrievedChunk,
   rules: readonly PolicyRule[],
@@ -151,6 +159,7 @@ function evaluateChunkRules(
   };
 }
 
+/** Evaluates query rules; returns a deny evaluation, or undefined when no query rule denies. */
 export function evaluateQueryPolicy(
   policy: { id: string; version: number },
   document: PolicyDocument,
@@ -162,10 +171,11 @@ export function evaluateQueryPolicy(
       ? [toPolicyMatch(rule, "query")]
       : [];
   });
-  if (!matchedRules.some((rule) => rule.effect === "deny")) return undefined;
+  if (!matchedRules.some((rule) => rule.decision === "deny")) return undefined;
   return { chunks: [], decision: createDecision(policy, matchedRules) };
 }
 
+/** Evaluates Chunk rules for the retrieved Chunks; deny clears all Chunks, redact rewrites copies. */
 export function evaluateChunkPolicy(
   policy: { id: string; version: number },
   document: PolicyDocument,
@@ -174,8 +184,10 @@ export function evaluateChunkPolicy(
   const evaluatedChunks = chunks.map((chunk) =>
     evaluateChunkRules(chunk, document.rules),
   );
-  const matchedRules = evaluatedChunks.flatMap(
-    (evaluatedChunk) => evaluatedChunk.matchedRules,
+  const matchedRules = document.rules.flatMap((rule) =>
+    evaluatedChunks.flatMap((evaluatedChunk) =>
+      evaluatedChunk.matchedRules.filter((match) => match.ruleId === rule.id),
+    ),
   );
   const result = createDecision(policy, matchedRules);
   return {
