@@ -74,9 +74,9 @@ export const ORG_SCOPE_CONFIG: Readonly<Record<string, OrgScopeConfig>> = {
     parentRelations: ["document"],
   },
   QueryLog: {
-    kind: "relation",
-    chain: ["user", "organizationId"],
-    verifyVia: [{ foreignKeyField: "userId", parentModel: "User" }],
+    kind: "direct",
+    field: "organizationId",
+    parentRelations: ["user"],
   },
 };
 

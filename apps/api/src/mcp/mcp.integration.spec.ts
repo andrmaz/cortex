@@ -35,6 +35,7 @@ const mockPrisma = {
   user: { findUnique: vi.fn() },
   organization: { findUnique: vi.fn() },
   userDepartment: { findFirst: vi.fn() },
+  queryLog: { create: vi.fn().mockResolvedValue({}) },
   policy: {
     findFirst: vi
       .fn()
@@ -338,6 +339,106 @@ describe("MCP Integration", () => {
         .expect(201);
 
       expect(response.body.scope.departmentId).toBe("dept_456");
+    });
+  });
+
+  describe("QueryLog audit", () => {
+    const token = () =>
+      issueToken({
+        sub: "user_123",
+        email: "alice@example.com",
+        organizationId: "org_456",
+        role: "member",
+      });
+
+    it("appends a QueryLog entry for an allowed query", async () => {
+      mockPrisma.userDepartment.findFirst.mockResolvedValueOnce({
+        departmentId: "dept_789",
+        isPrimary: true,
+      });
+      mockRetrieval.search.mockResolvedValueOnce([
+        {
+          chunkId: "chunk-1",
+          content: "Coding standards text",
+          score: 0.9,
+          sourceRef: { sourceId: "source-allowed", documentId: "doc-1" },
+        },
+      ]);
+
+      await request(app.getHttpServer())
+        .post("/mcp")
+        .set("Authorization", `Bearer ${token()}`)
+        .send({ query: "standards" })
+        .expect(201);
+
+      expect(mockPrisma.queryLog.create).toHaveBeenCalledTimes(1);
+      const { data } = mockPrisma.queryLog.create.mock.calls[0]![0];
+      expect(data).toMatchObject({
+        userId: "user_123",
+        organizationId: "org_456",
+        departmentId: "dept_789",
+        query: "standards",
+        policyDecision: expect.objectContaining({ decision: "allow" }),
+        contextBundle: {
+          citations: [
+            {
+              chunkId: "chunk-1",
+              documentId: "doc-1",
+              sourceId: "source-allowed",
+              score: 0.9,
+            },
+          ],
+        },
+      });
+      expect(data.latencyMs).toBeGreaterThanOrEqual(0);
+      expect(JSON.stringify(data)).not.toContain("Coding standards text");
+    });
+
+    it("appends a QueryLog entry for a denied query", async () => {
+      mockPrisma.userDepartment.findFirst.mockResolvedValueOnce({
+        departmentId: "dept_789",
+        isPrimary: true,
+      });
+      mockPrisma.policy.findFirst.mockResolvedValueOnce(null);
+
+      const response = await request(app.getHttpServer())
+        .post("/mcp")
+        .set("Authorization", `Bearer ${token()}`)
+        .send({ query: "secret" })
+        .expect(201);
+
+      expect(response.body.policy.decision).toBe("deny");
+      expect(mockPrisma.queryLog.create).toHaveBeenCalledTimes(1);
+      const { data } = mockPrisma.queryLog.create.mock.calls[0]![0];
+      expect(data).toMatchObject({
+        organizationId: "org_456",
+        departmentId: "dept_789",
+        policyDecision: expect.objectContaining({
+          decision: "deny",
+          reasonCode: "POLICY_NO_ACTIVE_POLICY",
+        }),
+        contextBundle: { citations: [] },
+      });
+    });
+
+    it("does not write a QueryLog entry for an unauthenticated request", async () => {
+      await request(app.getHttpServer())
+        .post("/mcp")
+        .send({ query: "test" })
+        .expect(401);
+
+      expect(mockPrisma.queryLog.create).not.toHaveBeenCalled();
+    });
+
+    it("fails the request when the audit write fails", async () => {
+      mockPrisma.userDepartment.findFirst.mockResolvedValueOnce(null);
+      mockPrisma.queryLog.create.mockRejectedValueOnce(new Error("db down"));
+
+      await request(app.getHttpServer())
+        .post("/mcp")
+        .set("Authorization", `Bearer ${token()}`)
+        .send({ query: "test" })
+        .expect(500);
     });
   });
 

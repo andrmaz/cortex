@@ -28,6 +28,7 @@ model Organization {
   documents   Document[]
   chunks      Chunk[]
   policies    Policy[]
+  queryLogs   QueryLog[]
 
   @@map("organizations")
 }
@@ -47,6 +48,7 @@ model User {
   userDepartments UserDepartment[]
   queryLogs       QueryLog[]
 
+  @@unique([id, organizationId])
   // Indexes for common query patterns
   @@index([organizationId])
   @@index([email])
@@ -197,20 +199,28 @@ model Policy {
 // Audit Models
 // ============================================================================
 
-/// An immutable record of query input, context usage, policy decisions, and output metadata.
+/// An immutable, append-only record of query input, context usage, policy decisions, and output metadata.
+/// The application layer exposes create and read paths only.
 model QueryLog {
   id             String   @id @default(uuid())
   userId         String   @map("user_id")
+  organizationId String   @map("organization_id")
+  /// Primary Department at query time. Kept as a plain id so the audit record survives Department removal.
+  departmentId   String?  @map("department_id")
   query          String
+  /// Chunk/Document/Source references only; never chunk content.
   contextBundle  Json?    @map("context_bundle")
   policyDecision Json?    @map("policy_decision")
   response       String?
+  latencyMs      Int?     @map("latency_ms")
   createdAt      DateTime @default(now())
 
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([organizationId, createdAt])
   @@index([createdAt])
   @@map("query_logs")
 }

@@ -8,6 +8,7 @@ import { MCPController, type RequestWithJwtUser } from "./mcp.controller";
 import { IdentityService } from "./identity.service";
 import { ContextBundleService } from "./context-bundle.service";
 import { RetrievalService } from "../retrieval/retrieval.service";
+import { QueryLogService } from "./query-log.service";
 import { PolicyRuntimeService } from "../policy/policy-runtime.service";
 
 const user: AuthenticatedUser = {
@@ -73,6 +74,7 @@ function setup(policyDocument: unknown, searchRows = rows) {
     identity,
     runtime,
     new ContextBundleService(),
+    fromPartial<QueryLogService>({ record: vi.fn() }),
   );
   const req = fromPartial<RequestWithJwtUser>({ user });
   return { controller, req, findActivePolicy, searchChunks };

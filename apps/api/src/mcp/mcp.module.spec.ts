@@ -18,6 +18,7 @@ const mockPrismaService = {
   user: { findUnique: vi.fn() },
   organization: { findUnique: vi.fn() },
   userDepartment: { findFirst: vi.fn() },
+  queryLog: { create: vi.fn() },
 };
 
 describe("MCPModule", () => {
