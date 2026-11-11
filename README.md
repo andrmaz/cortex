@@ -45,7 +45,6 @@ pnpm dev
 - `packages/db` - Prisma schema and database client
 - `packages/ui` - Shared React component library (`@cortex/ui`)
 - `packages/shared` - Shared types and utilities (`@cortex/shared`)
-- `packages/eslint-config` - ESLint configurations (`@cortex/eslint-config`)
 - `packages/typescript-config` - TypeScript configurations (`@cortex/typescript-config`)
 
 ## Architecture
@@ -119,7 +118,7 @@ docker-compose down
 - **API Framework**: NestJS
 - **Database**: PostgreSQL with Prisma ORM
 - **Cache**: Redis
-- **Linting**: ESLint
+- **Linting**: Oxlint
 - **Formatting**: Prettier
 
 ## License
