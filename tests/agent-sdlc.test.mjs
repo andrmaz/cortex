@@ -345,5 +345,6 @@ test("AGENTS.md and issue-sdlc skill share activation rules", async () => {
     assert.match(doc, /ledger/);
   }
   assert.match(skill, /terminal completion check/);
+  assert.match(skill, /local bookkeeping, not external writes/);
   assert.match(agents, /terminal completion check/);
 });
