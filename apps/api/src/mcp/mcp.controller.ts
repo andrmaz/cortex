@@ -15,6 +15,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { IdentityService } from "./identity.service";
 import type { ResolvedScope } from "./identity.service";
+import { QueryLogService } from "./query-log.service";
 
 interface MCPQueryBody {
   query: string;
@@ -39,6 +40,7 @@ export class MCPController {
     private readonly identityService: IdentityService,
     private readonly policies: PolicyRuntimeService,
     private readonly bundles: ContextBundleService,
+    private readonly queryLog: QueryLogService,
   ) {}
 
   @Post()
@@ -51,6 +53,7 @@ export class MCPController {
     if (query.length === 0) {
       throw new BadRequestException("query must be a non-empty string");
     }
+    const startedAt = performance.now();
     const { id: userId, organizationId } = req.user;
 
     const scope = await this.identityService.resolveScope(
@@ -63,16 +66,27 @@ export class MCPController {
     const chunks =
       evaluation.decision.decision === "deny" ? [] : evaluation.chunks;
     const bundle = this.bundles.assemble(chunks);
+    const answer =
+      evaluation.decision.decision === "deny"
+        ? (evaluation.decision.reason ?? "Request denied.")
+        : this.bundles.composeAnswer(bundle);
+
+    // Audit before responding so no completed query goes unrecorded.
+    await this.queryLog.record({
+      userId,
+      scope,
+      query,
+      decision: evaluation.decision,
+      bundle,
+      latencyMs: performance.now() - startedAt,
+    });
 
     return {
       scope,
       context: bundle.chunks.map((chunk) => chunk.content),
       citations: bundle.citations,
       policy: evaluation.decision,
-      answer:
-        evaluation.decision.decision === "deny"
-          ? (evaluation.decision.reason ?? "Request denied.")
-          : this.bundles.composeAnswer(bundle),
+      answer,
     };
   }
 }

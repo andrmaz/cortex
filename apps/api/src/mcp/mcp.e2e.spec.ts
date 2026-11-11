@@ -73,6 +73,7 @@ function makeFakePrisma() {
           }),
         ),
     },
+    queryLog: { create: vi.fn().mockResolvedValue({}) },
     policy: {
       findFirst: vi
         .fn()

@@ -321,7 +321,7 @@ describe("computeScopedArgs — direct scope (User, Department, ...)", () => {
   });
 });
 
-describe("computeScopedArgs — relation scope (UserDepartment, QueryLog)", () => {
+describe("computeScopedArgs — relation scope (UserDepartment)", () => {
   it("merges a single-hop relation filter for UserDepartment reads", () => {
     const result = computeScopedArgs(
       {
@@ -336,12 +336,23 @@ describe("computeScopedArgs — relation scope (UserDepartment, QueryLog)", () =
     });
   });
 
-  it("scopes updateMany/deleteMany via the relation filter", () => {
-    const result = computeScopedArgs(
-      { model: "QueryLog", operation: "deleteMany", args: {} },
-      ORG_ID,
-    );
-    expect(result["where"]).toEqual({ user: { organizationId: ORG_ID } });
+  it("scopes QueryLog reads and creates by its own organizationId", () => {
+    expect(
+      computeScopedArgs(
+        { model: "QueryLog", operation: "findMany", args: {} },
+        ORG_ID,
+      )["where"],
+    ).toEqual({ organizationId: ORG_ID });
+    expect(
+      computeScopedArgs(
+        {
+          model: "QueryLog",
+          operation: "create",
+          args: { data: { userId: "u1", query: "q" } },
+        },
+        ORG_ID,
+      )["data"],
+    ).toEqual({ userId: "u1", query: "q", organizationId: ORG_ID });
   });
 
   it("merges a relation filter alongside a unique identifier (flat merge, not AND-wrapped)", () => {

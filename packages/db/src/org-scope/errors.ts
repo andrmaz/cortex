@@ -48,3 +48,17 @@ export class UnknownOrgScopeModelError extends Error {
     this.name = "UnknownOrgScopeModelError";
   }
 }
+
+/**
+ * Thrown when a write would update or delete an append-only audit record
+ * (QueryLog), directly or through a nested relation write.
+ */
+export class AppendOnlyViolationError extends Error {
+  constructor(model: string, operation: string) {
+    super(
+      `Append-only violation: ${model}.${operation}() would modify or ` +
+        "remove QueryLog audit records; only creation is permitted.",
+    );
+    this.name = "AppendOnlyViolationError";
+  }
+}

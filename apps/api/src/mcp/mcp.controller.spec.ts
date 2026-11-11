@@ -6,6 +6,7 @@ import type { PolicyDecision } from "@cortex/shared/policy";
 import { MCPController } from "./mcp.controller";
 import { IdentityService } from "./identity.service";
 import { ContextBundleService } from "./context-bundle.service";
+import { QueryLogService } from "./query-log.service";
 import { PolicyRuntimeService } from "../policy/policy-runtime.service";
 import type { RetrievedChunk } from "../retrieval/retrieval.service";
 import type { AuthenticatedUser } from "../auth/auth.types";
@@ -27,6 +28,7 @@ describe("MCPController", () => {
   let controller: MCPController;
   let identityService: Mocked<IdentityService>;
   let policies: Mocked<PolicyRuntimeService>;
+  let queryLog: Mocked<QueryLogService>;
   let chunks: RetrievedChunk[];
 
   const allowed: PolicyDecision = {
@@ -62,10 +64,14 @@ describe("MCPController", () => {
         .fn<PolicyRuntimeService["evaluate"]>()
         .mockImplementation(async () => ({ chunks, decision: allowed })),
     });
+    queryLog = fromPartial<Mocked<QueryLogService>>({
+      record: vi.fn<QueryLogService["record"]>().mockResolvedValue(undefined),
+    });
     controller = new MCPController(
       identityService,
       policies,
       new ContextBundleService(),
+      queryLog,
     );
   });
 
@@ -113,11 +119,36 @@ describe("MCPController", () => {
     expect(result.citations).toEqual([]);
   });
 
+  it("records an audit entry before responding", async () => {
+    await controller.handleMCP({ query: " arch? " }, makeReq());
+
+    expect(queryLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user_123",
+        scope: { organizationId: "org_456", departmentId: "dept_789" },
+        query: "arch?",
+        decision: allowed,
+        bundle: expect.objectContaining({
+          citations: [expect.objectContaining({ chunkId: "c1" })],
+        }),
+      }),
+    );
+  });
+
+  it("fails the request when the audit write fails", async () => {
+    queryLog.record.mockRejectedValueOnce(new Error("db down"));
+
+    await expect(
+      controller.handleMCP({ query: "q" }, makeReq()),
+    ).rejects.toThrow("db down");
+  });
+
   it.each(["", "   "])("rejects blank query %j", async (query) => {
     await expect(
       controller.handleMCP({ query }, makeReq()),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(policies.evaluate).not.toHaveBeenCalled();
+    expect(queryLog.record).not.toHaveBeenCalled();
   });
 
   it("rejects a missing query", async () => {
