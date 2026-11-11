@@ -7,6 +7,7 @@
 --   ALTER TABLE "query_logs" DROP COLUMN "latency_ms", DROP COLUMN "department_id", DROP COLUMN "organization_id";
 --   ALTER TABLE "query_logs" ADD CONSTRAINT "query_logs_user_id_fkey"
 --     FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+--   (Restrict was used so deleting/re-keying a User or Organization cannot erase or rewrite audit rows.)
 --   DROP INDEX IF EXISTS "users_id_organization_id_key";
 
 ALTER TABLE "query_logs" ADD COLUMN "organization_id" TEXT;
@@ -31,11 +32,11 @@ ALTER TABLE "query_logs"
 ADD CONSTRAINT "query_logs_user_id_organization_id_fkey"
 FOREIGN KEY ("user_id", "organization_id")
 REFERENCES "users"("id", "organization_id")
-ON DELETE CASCADE
-ON UPDATE CASCADE;
+ON DELETE RESTRICT
+ON UPDATE RESTRICT;
 
 ALTER TABLE "query_logs"
 ADD CONSTRAINT "query_logs_organization_id_fkey"
 FOREIGN KEY ("organization_id") REFERENCES "organizations"("id")
-ON DELETE CASCADE
-ON UPDATE CASCADE;
+ON DELETE RESTRICT
+ON UPDATE RESTRICT;

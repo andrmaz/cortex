@@ -216,8 +216,9 @@ model QueryLog {
   createdAt      DateTime @default(now())
 
   // Relations
-  user         User         @relation(fields: [userId, organizationId], references: [id, organizationId], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // Restrict so deleting or re-keying a User or Organization cannot erase or rewrite audit history.
+  user         User         @relation(fields: [userId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([userId])
   @@index([organizationId, createdAt])

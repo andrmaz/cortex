@@ -27,6 +27,9 @@ describe("composite org foreign keys for direct-scoped models", () => {
     expect(schema).toContain(
       "fields: [userId, organizationId], references: [id, organizationId]",
     );
+    expect(schema).toMatch(
+      /model QueryLog[\s\S]*onDelete: Restrict, onUpdate: Restrict[\s\S]*onDelete: Restrict, onUpdate: Restrict/,
+    );
     expect(schema.match(/@@unique\(\[id, organizationId\]\)/g)).toHaveLength(3);
   });
 

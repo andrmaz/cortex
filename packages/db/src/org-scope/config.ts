@@ -79,4 +79,3 @@ export const ORG_SCOPE_CONFIG: Readonly<Record<string, OrgScopeConfig>> = {
     parentRelations: ["user"],
   },
 };
-
