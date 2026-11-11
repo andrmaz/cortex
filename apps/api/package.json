@@ -10,7 +10,7 @@
     "dev": "nest start --watch",
     "start": "nest start",
     "start:prod": "node dist/main",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "oxlint --max-warnings 0",
     "test": "vitest run",
     "test:postgres": "vitest run --config vitest.postgres.config.ts"
   },
@@ -40,7 +40,6 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@cortex/eslint-config": "workspace:*",
     "@cortex/typescript-config": "workspace:*",
     "@nestjs/cli": "^11.0.21",
     "@nestjs/testing": "^11.1.24",
@@ -55,7 +54,6 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.0",
-    "eslint": "^9.39.1",
     "supertest": "^7.2.2",
     "typescript": "5.9.2",
     "unplugin-swc": "^2.0.0",
