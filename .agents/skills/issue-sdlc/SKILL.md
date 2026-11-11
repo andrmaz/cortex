@@ -7,7 +7,7 @@ description: Deliver an existing GitHub issue end-to-end. Use when the user asks
 
 Follow [`docs/agents/sdlc.md`](../../../docs/agents/sdlc.md) to its terminal gate.
 
-Activation: do not activate for planning-only requests. Reassess at plan approval, at a transition into implementation, on resume, and when end-to-end delivery is explicitly requested. Record the selected scope and whether external writes are authorized in the ledger; plan approval alone never authorizes pushes, issue edits, or PR creation. Never claim a phase passed without ledger evidence.
+Activation: do not activate for planning-only requests. Reassess at plan approval, at a transition into implementation, on resume, and when end-to-end delivery is explicitly requested. Record the selected scope and whether external writes are authorized in the ledger; plan approval alone never authorizes pushes, issue edits, or PR creation. Never claim a phase passed without ledger evidence. Ledger create, read, and append under `.tools/sdlc-ledger/` are local bookkeeping, not external writes; do not wait for authorization or treat a narrow request as blocking them.
 
 0. Act as the low-effort orchestrator: run every phase in its own dedicated sub-agent (medium effort; Planning only may use high). Create the ledger `.tools/sdlc-ledger/issue-<number>.md` (pass sub-agents its resolved absolute path) and run Entry in a sub-agent, and tell each sub-agent its phase, the ledger path, and to read the ledger first and append its result before returning. See "Orchestration" in the lifecycle doc.
 1. Read each referenced phase skill before entering that phase and apply it directly (inside that phase's sub-agent). Repository docs override upstream skill publish and interaction steps.

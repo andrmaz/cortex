@@ -46,6 +46,7 @@ The main agent is the **orchestrator**. It only routes work, reads the ledger, a
 Every phase result is persisted to a temporary, append-only ledger so the orchestrator and every sub-agent know the outcome of earlier phases.
 
 - Path: `.tools/sdlc-ledger/issue-<number>.md` (`.tools/` is gitignored; never commit the ledger).
+- Ledger create, read, and append operations are local bookkeeping, not external writes. They are scoped to the gitignored `.tools/sdlc-ledger/` directory only and need no per-action authorization; plan approval or a narrow request such as "Review issue" does not block them. This allowance never extends to pushes, issue edits or comments, or PR creation.
 - The orchestrator creates the ledger at Entry, with the issue number, labels, and entry decision.
 - Each sub-agent reads the whole ledger before starting, and appends one entry before returning: phase, status (`passed`, `failed`, `blocked`, or `skipped`), gate result, key decisions, artifact paths (files, commits, PR URL), and open risks.
 - A sub-agent returns only a short summary and the ledger entry reference to the orchestrator; detail lives in the ledger.
