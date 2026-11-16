@@ -29,6 +29,11 @@ export interface ChunkSimilarityRow {
   readonly score: number;
 }
 
+export type AppendOnlyQueryLog = Pick<
+  PrismaClient["queryLog"],
+  "create" | "findMany" | "findFirst" | "count"
+>;
+
 function createRawPrismaClient(): PrismaClient {
   const connectionString = process.env["DATABASE_URL"];
   invariant(connectionString, "DATABASE_URL environment variable is required");
@@ -100,8 +105,15 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this.scoped.policy;
   }
 
-  get queryLog(): PrismaClient["queryLog"] {
-    return this.scoped.queryLog;
+  /** Append-only audit access: no update, upsert, or delete operations exist. */
+  get queryLog(): AppendOnlyQueryLog {
+    const delegate = this.scoped.queryLog;
+    return {
+      create: delegate.create.bind(delegate),
+      findMany: delegate.findMany.bind(delegate),
+      findFirst: delegate.findFirst.bind(delegate),
+      count: delegate.count.bind(delegate),
+    };
   }
 
   get $transaction(): PrismaClient["$transaction"] {

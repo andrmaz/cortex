@@ -11,6 +11,7 @@ export type {
 } from "./context.js";
 
 export {
+  AppendOnlyViolationError,
   MissingOrgContextError,
   OrgScopeViolationError,
   UnknownOrgScopeModelError,

@@ -19,6 +19,7 @@ class MockPrismaService {
   organization = { findFirst: vi.fn() };
   userDepartment = { findFirst: vi.fn().mockResolvedValue(null) };
   policy = { findFirst: vi.fn() };
+  queryLog = { create: vi.fn().mockResolvedValue({}) };
   searchChunksBySimilarity = vi.fn().mockResolvedValue([]);
 }
 

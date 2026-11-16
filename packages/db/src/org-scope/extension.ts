@@ -1,5 +1,9 @@
 import { getOrgContext, isUnscopedContext } from "./context.js";
-import { MissingOrgContextError, OrgScopeViolationError } from "./errors.js";
+import {
+  AppendOnlyViolationError,
+  MissingOrgContextError,
+  OrgScopeViolationError,
+} from "./errors.js";
 import {
   computeScopedArgs,
   getScopeConfig,
@@ -42,6 +46,53 @@ interface ExtensibleClient {
       $executeRawUnsafe: (params: RawQueryParams) => Promise<unknown>;
     };
   }): unknown;
+}
+
+const QUERY_LOG_MUTATIONS = new Set([
+  "update",
+  "updateMany",
+  "updateManyAndReturn",
+  "upsert",
+  "delete",
+  "deleteMany",
+]);
+const QUERY_LOG_RELATION_PARENTS = new Set(["User", "Organization"]);
+const QUERY_LOG_NESTED_CREATES = new Set(["create", "createMany"]);
+
+function hasQueryLogMutation(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(hasQueryLogMutation);
+  }
+  if (value === null || typeof value !== "object") {
+    return false;
+  }
+  return Object.entries(value).some(([key, nested]) => {
+    if (key === "queryLogs") {
+      return (
+        nested !== null &&
+        typeof nested === "object" &&
+        Object.keys(nested).some((op) => !QUERY_LOG_NESTED_CREATES.has(op))
+      );
+    }
+    return hasQueryLogMutation(nested);
+  });
+}
+
+/**
+ * QueryLog is append-only. This holds in every context (including the
+ * unscoped system hatch) and for nested writes through its parents.
+ */
+function assertQueryLogAppendOnly(
+  model: string,
+  operation: string,
+  args: unknown,
+): void {
+  if (model === "QueryLog" && QUERY_LOG_MUTATIONS.has(operation)) {
+    throw new AppendOnlyViolationError(model, operation);
+  }
+  if (QUERY_LOG_RELATION_PARENTS.has(model) && hasQueryLogMutation(args)) {
+    throw new AppendOnlyViolationError(model, operation);
+  }
 }
 
 /**
@@ -99,6 +150,8 @@ export function createOrgScopedClient<T extends ExtensibleClient>(
           if (!model) {
             return enforceClientOperation(operation, args, query);
           }
+
+          assertQueryLogAppendOnly(model, operation, args);
 
           const context = getOrgContext();
           if (!context) {

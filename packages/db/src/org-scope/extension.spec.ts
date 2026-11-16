@@ -2,7 +2,11 @@ import { describe, it, expect, vi } from "vitest";
 import invariant from "invariant";
 import { createOrgScopedClient } from "./extension.js";
 import { runWithOrgContext, runWithoutOrgScope } from "./context.js";
-import { MissingOrgContextError, OrgScopeViolationError } from "./errors.js";
+import {
+  AppendOnlyViolationError,
+  MissingOrgContextError,
+  OrgScopeViolationError,
+} from "./errors.js";
 
 type Impl = (args: unknown) => Promise<unknown>;
 type ModelImpls = Record<string, Record<string, Impl>>;
@@ -419,5 +423,61 @@ describe("createOrgScopedClient", () => {
 
     expect(result).toEqual([{ ok: 1 }]);
     expect(underlying).toHaveBeenCalledWith("SELECT 1");
+  });
+});
+
+describe("QueryLog append-only guard", () => {
+  function setup() {
+    const impls = {
+      queryLog: { deleteMany: vi.fn(), update: vi.fn(), create: vi.fn() },
+      user: { update: vi.fn() },
+      organization: { update: vi.fn() },
+    };
+    const client = createOrgScopedClient(
+      createFakeBaseClient(impls) as unknown as FakeClient,
+    );
+    return { client, impls };
+  }
+
+  it("rejects direct QueryLog updates and deletes, even unscoped", async () => {
+    const { client, impls } = setup();
+
+    await runWithOrgContext("org-1", async () => {
+      await expect(
+        callModel(client, "queryLog", "deleteMany", {}),
+      ).rejects.toThrow(AppendOnlyViolationError);
+    });
+    await runWithoutOrgScope(async () => {
+      await expect(
+        callModel(client, "queryLog", "update", { where: { id: "q" } }),
+      ).rejects.toThrow(AppendOnlyViolationError);
+    });
+    expect(impls.queryLog.deleteMany).not.toHaveBeenCalled();
+    expect(impls.queryLog.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["user", { data: { queryLogs: { deleteMany: {} } } }],
+    ["user", { data: { queryLogs: { update: { where: {}, data: {} } } } }],
+    ["organization", { data: { queryLogs: { set: [] } } }],
+  ])("rejects nested QueryLog mutation via %s", async (model, args) => {
+    const { client } = setup();
+
+    await runWithOrgContext("org-1", async () => {
+      await expect(callModel(client, model, "update", args)).rejects.toThrow(
+        AppendOnlyViolationError,
+      );
+    });
+  });
+
+  it("still allows appending QueryLog rows", async () => {
+    const { client, impls } = setup();
+
+    await runWithOrgContext("org-1", async () => {
+      await callModel(client, "queryLog", "create", {
+        data: { userId: "u", query: "q" },
+      });
+    });
+    expect(impls.queryLog.create).toHaveBeenCalledTimes(1);
   });
 });
