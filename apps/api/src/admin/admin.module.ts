@@ -14,6 +14,9 @@ import { SourceService } from "./sources/source.service";
 import { PoliciesController } from "./policies/policies.controller";
 import { PolicyService } from "./policies/policy.service";
 
+import { QueryLogsController } from "./query-logs/query-logs.controller";
+import { QueryLogAdminService } from "./query-logs/query-log-admin.service";
+
 @Module({
   imports: [PrismaModule, IngestionModule],
   controllers: [
@@ -23,6 +26,7 @@ import { PolicyService } from "./policies/policy.service";
     UserDepartmentsController,
     SourcesController,
     PoliciesController,
+    QueryLogsController,
   ],
   providers: [
     OrganizationService,
@@ -31,6 +35,7 @@ import { PolicyService } from "./policies/policy.service";
     UserDepartmentService,
     SourceService,
     PolicyService,
+    QueryLogAdminService,
   ],
 })
 export class AdminModule {}
