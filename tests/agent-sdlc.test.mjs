@@ -315,6 +315,24 @@ test("sdlc.md separates plan approval from external-write authorization", async 
   );
 });
 
+test("Entry requires an authorized, verified issue readiness label", async () => {
+  const lifecycle = await readRepoFile("docs/agents/sdlc.md");
+  const entry = lifecycle.split("## Entry")[1]?.split("\n## ")[0] ?? "";
+
+  assert.match(entry, /no triage state/i);
+  assert.match(entry, /implementation.*end-to-end/i);
+  assert.match(entry, /issue-label edits.*authorized/i);
+  assert.match(entry, /push.*PR.*does not authorize.*issue-label edits/i);
+  assert.match(entry, /apply `ready-for-agent`/i);
+  assert.match(entry, /remove `needs-triage`/i);
+  assert.match(entry, /re-read.*labels.*before Coding/i);
+  assert.match(entry, /sole triage state before Coding/i);
+  assert.match(entry, /failed or unverified writes as blocked/i);
+  assert.match(entry, /not authorized.*ask.*permission/i);
+  assert.match(entry, /readiness.*blocked/i);
+  assert.match(entry, /ledger.*not.*label/i);
+});
+
 test("sdlc.md terminal completion check gates every lifecycle gate", async () => {
   const lifecycle = await readRepoFile("docs/agents/sdlc.md");
   const check =
