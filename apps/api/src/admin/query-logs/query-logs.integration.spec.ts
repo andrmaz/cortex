@@ -1,4 +1,4 @@
-import {
+﻿import {
   describe,
   it,
   expect,
@@ -74,18 +74,33 @@ interface FindManyArgs {
 }
 
 // Emulates the Prisma filter/order/take semantics the service relies on.
+function matchesWhere(r: (typeof store)[number], where: FindManyArgs["where"]) {
+  return (
+    r.organizationId === where.organizationId &&
+    matchesField(where.userId, r.userId) &&
+    matchesField(where.departmentId, r.departmentId) &&
+    matchesRange(where.createdAt, r.createdAt)
+  );
+}
+
+function matchesField(expected: string | undefined, actual: string | null) {
+  return !expected || actual === expected;
+}
+
+function matchesRange(
+  range: { gte?: Date; lte?: Date } | undefined,
+  value: Date,
+) {
+  return (
+    (!range?.gte || value >= range.gte) && (!range?.lte || value <= range.lte)
+  );
+}
+
 function fakeFindMany(args: FindManyArgs) {
   const { where } = args;
   return Promise.resolve(
     store
-      .filter(
-        (r) =>
-          r.organizationId === where.organizationId &&
-          (!where.userId || r.userId === where.userId) &&
-          (!where.departmentId || r.departmentId === where.departmentId) &&
-          (!where.createdAt?.gte || r.createdAt >= where.createdAt.gte) &&
-          (!where.createdAt?.lte || r.createdAt <= where.createdAt.lte),
-      )
+      .filter((r) => matchesWhere(r, where))
       .sort(
         (x, y) =>
           y.createdAt.getTime() - x.createdAt.getTime() ||

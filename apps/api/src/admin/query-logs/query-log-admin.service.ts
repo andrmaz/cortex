@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+﻿import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import type {
   QueryLogCitationDto,
@@ -31,6 +31,49 @@ function toCitations(contextBundle: unknown): QueryLogCitationDto[] {
   }));
 }
 
+type QueryLogRow = Awaited<
+  ReturnType<PrismaService["queryLog"]["findMany"]>
+>[number] & { user: { email: string } };
+
+function toCreatedAtRange(filters: QueryLogFilters) {
+  return {
+    ...(filters.from ? { gte: filters.from } : {}),
+    ...(filters.to ? { lte: filters.to } : {}),
+  };
+}
+
+function toWhere(organizationId: string, filters: QueryLogFilters) {
+  const createdAt = toCreatedAtRange(filters);
+  return {
+    organizationId,
+    ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+    ...(filters.userId ? { userId: filters.userId } : {}),
+    ...(filters.departmentId ? { departmentId: filters.departmentId } : {}),
+  };
+}
+
+function toResponse(
+  row: QueryLogRow,
+  departmentNames: Map<string, string>,
+): QueryLogResponseDto {
+  return {
+    id: row.id,
+    createdAt: row.createdAt.toISOString(),
+    actor: { userId: row.userId, email: row.user.email },
+    organizationId: row.organizationId,
+    department: row.departmentId
+      ? {
+          id: row.departmentId,
+          name: departmentNames.get(row.departmentId) ?? null,
+        }
+      : null,
+    query: row.query,
+    policyDecision: row.policyDecision ?? null,
+    citations: toCitations(row.contextBundle),
+    latencyMs: row.latencyMs,
+  };
+}
+
 @Injectable()
 export class QueryLogAdminService {
   constructor(private readonly prisma: PrismaService) {}
@@ -43,34 +86,14 @@ export class QueryLogAdminService {
     organizationId: string,
     filters: QueryLogFilters,
   ): Promise<QueryLogPageDto> {
-    const org = await this.prisma.organization.findUnique({
-      where: { id: organizationId },
-    });
-    if (!org) {
-      throw new NotFoundException(
-        `Organization with id "${organizationId}" not found`,
-      );
-    }
+    await this.assertOrganizationExists(organizationId);
 
     const limit = Math.min(
       filters.limit ?? DEFAULT_QUERY_LOG_LIMIT,
       MAX_QUERY_LOG_LIMIT,
     );
-    const createdAt =
-      filters.from || filters.to
-        ? {
-            ...(filters.from ? { gte: filters.from } : {}),
-            ...(filters.to ? { lte: filters.to } : {}),
-          }
-        : undefined;
-
     const rows = await this.prisma.queryLog.findMany({
-      where: {
-        organizationId,
-        ...(createdAt ? { createdAt } : {}),
-        ...(filters.userId ? { userId: filters.userId } : {}),
-        ...(filters.departmentId ? { departmentId: filters.departmentId } : {}),
-      },
+      where: toWhere(organizationId, filters),
       include: { user: { select: { email: true } } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1,
@@ -79,37 +102,42 @@ export class QueryLogAdminService {
 
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
+    const departmentNames = await this.loadDepartmentNames(
+      organizationId,
+      page,
+    );
 
+    return {
+      items: page.map((row) => toResponse(row, departmentNames)),
+      nextCursor: hasMore ? (rows[limit]?.id ?? null) : null,
+    };
+  }
+
+  private async assertOrganizationExists(organizationId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+    });
+    if (!org) {
+      throw new NotFoundException(
+        `Organization with id "${organizationId}" not found`,
+      );
+    }
+  }
+
+  private async loadDepartmentNames(
+    organizationId: string,
+    page: readonly QueryLogRow[],
+  ): Promise<Map<string, string>> {
     const departmentIds = [
       ...new Set(
         page.flatMap((row) => (row.departmentId ? [row.departmentId] : [])),
       ),
     ];
-    const departments = departmentIds.length
-      ? await this.prisma.department.findMany({
-          where: { organizationId, id: { in: departmentIds } },
-          select: { id: true, name: true },
-        })
-      : [];
-    const departmentNames = new Map(departments.map((d) => [d.id, d.name]));
-
-    const items: QueryLogResponseDto[] = page.map((row) => ({
-      id: row.id,
-      createdAt: row.createdAt.toISOString(),
-      actor: { userId: row.userId, email: row.user.email },
-      organizationId: row.organizationId,
-      department: row.departmentId
-        ? {
-            id: row.departmentId,
-            name: departmentNames.get(row.departmentId) ?? null,
-          }
-        : null,
-      query: row.query,
-      policyDecision: row.policyDecision ?? null,
-      citations: toCitations(row.contextBundle),
-      latencyMs: row.latencyMs,
-    }));
-
-    return { items, nextCursor: hasMore ? (rows[limit]?.id ?? null) : null };
+    if (departmentIds.length === 0) return new Map();
+    const departments = await this.prisma.department.findMany({
+      where: { organizationId, id: { in: departmentIds } },
+      select: { id: true, name: true },
+    });
+    return new Map(departments.map((d) => [d.id, d.name]));
   }
 }

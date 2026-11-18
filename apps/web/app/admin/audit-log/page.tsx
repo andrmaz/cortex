@@ -23,6 +23,49 @@ function ErrorBanner({ message }: { message: string }) {
   );
 }
 
+function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
+function OlderEntriesLink({
+  organizationId,
+  filters,
+  nextCursor,
+}: {
+  organizationId: string;
+  filters: AuditLogFilterValues;
+  nextCursor: string | null;
+}) {
+  if (!nextCursor) return null;
+  const query = buildAuditLogQuery({
+    orgId: organizationId,
+    from: filters.from,
+    to: filters.to,
+    userId: filters.userId,
+    departmentId: filters.departmentId,
+    cursor: nextCursor,
+  });
+  return (
+    <p style={{ marginTop: "16px" }}>
+      <Link href={`/admin/audit-log${query}`}>Older entries â†’</Link>
+    </p>
+  );
+}
+
+async function loadOrganizations(): Promise<{
+  organizations: Organization[];
+  error: string | null;
+}> {
+  try {
+    return { organizations: await fetchOrganizations(), error: null };
+  } catch (err) {
+    return {
+      organizations: [],
+      error: errorMessage(err, "Failed to load organizations"),
+    };
+  }
+}
+
 async function AuditLogView({
   organizationId,
   filters,
@@ -36,16 +79,6 @@ async function AuditLogView({
       fetchUsers(organizationId),
       fetchDepartments(organizationId),
     ]);
-    const nextHref = page.nextCursor
-      ? `/admin/audit-log${buildAuditLogQuery({
-          orgId: organizationId,
-          from: filters.from,
-          to: filters.to,
-          userId: filters.userId,
-          departmentId: filters.departmentId,
-          cursor: page.nextCursor,
-        })}`
-      : null;
 
     return (
       <>
@@ -56,20 +89,16 @@ async function AuditLogView({
           values={filters}
         />
         <AuditLogTable entries={page.items} />
-        {nextHref && (
-          <p style={{ marginTop: "16px" }}>
-            <Link href={nextHref}>Older entries â†’</Link>
-          </p>
-        )}
+        <OlderEntriesLink
+          organizationId={organizationId}
+          filters={filters}
+          nextCursor={page.nextCursor}
+        />
       </>
     );
   } catch (err) {
     return (
-      <ErrorBanner
-        message={
-          err instanceof Error ? err.message : "Failed to load audit log"
-        }
-      />
+      <ErrorBanner message={errorMessage(err, "Failed to load audit log")} />
     );
   }
 }
@@ -88,14 +117,7 @@ interface PageProps {
 export default async function AuditLogPage({ searchParams }: PageProps) {
   const { orgId, from, to, userId, departmentId, cursor } = await searchParams;
 
-  let organizations: Organization[] = [];
-  let orgFetchError: string | null = null;
-  try {
-    organizations = await fetchOrganizations();
-  } catch (err) {
-    orgFetchError =
-      err instanceof Error ? err.message : "Failed to load organizations";
-  }
+  const { organizations, error: orgFetchError } = await loadOrganizations();
 
   const filters: AuditLogFilterValues = {
     from: toUtcIso(from),

@@ -23,56 +23,69 @@ export function AuditLogTable({ entries }: { entries: AuditLogEntry[] }) {
       </thead>
       <tbody>
         {entries.map((entry) => (
-          <tr key={entry.id}>
-            <td style={tdStyle}>{formatTime(entry.createdAt)}</td>
-            <td style={tdStyle}>{entry.actor.email}</td>
-            <td style={tdStyle}>
-              {entry.department
-                ? (entry.department.name ?? entry.department.id)
-                : "—"}
-            </td>
-            <td style={tdStyle}>{entry.query}</td>
-            <td style={tdStyle}>
-              <details>
-                <summary style={{ cursor: "pointer" }}>View</summary>
-                <dl style={detailListStyle}>
-                  <dt>Organization</dt>
-                  <dd>{entry.organizationId}</dd>
-                  <dt>Latency</dt>
-                  <dd>
-                    {entry.latencyMs === null ? "—" : `${entry.latencyMs} ms`}
-                  </dd>
-                </dl>
-                <h3 style={subheadingStyle}>Policy decision</h3>
-                <pre style={preStyle}>
-                  {entry.policyDecision === null
-                    ? "No decision recorded"
-                    : JSON.stringify(entry.policyDecision, null, 2)}
-                </pre>
-                <h3 style={subheadingStyle}>
-                  Context bundle ({entry.citations.length})
-                </h3>
-                {entry.citations.length === 0 ? (
-                  <p style={{ margin: 0, color: "#6b7280" }}>
-                    No chunks returned.
-                  </p>
-                ) : (
-                  <ul style={{ margin: 0, paddingLeft: "20px" }}>
-                    {entry.citations.map((c) => (
-                      <li key={c.chunkId}>
-                        chunk {c.chunkId} · document {c.documentId} · source{" "}
-                        {c.sourceId} · score {c.score.toFixed(3)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </details>
-            </td>
-          </tr>
+          <AuditLogRow key={entry.id} entry={entry} />
         ))}
       </tbody>
     </table>
   );
+}
+
+function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
+  return (
+    <tr>
+      <td style={tdStyle}>{formatTime(entry.createdAt)}</td>
+      <td style={tdStyle}>{entry.actor.email}</td>
+      <td style={tdStyle}>{formatDepartment(entry.department)}</td>
+      <td style={tdStyle}>{entry.query}</td>
+      <td style={tdStyle}>
+        <details>
+          <summary style={{ cursor: "pointer" }}>View</summary>
+          <dl style={detailListStyle}>
+            <dt>Organization</dt>
+            <dd>{entry.organizationId}</dd>
+            <dt>Latency</dt>
+            <dd>{formatLatency(entry.latencyMs)}</dd>
+          </dl>
+          <h3 style={subheadingStyle}>Policy decision</h3>
+          <pre style={preStyle}>{formatDecision(entry.policyDecision)}</pre>
+          <h3 style={subheadingStyle}>
+            Context bundle ({entry.citations.length})
+          </h3>
+          <Citations citations={entry.citations} />
+        </details>
+      </td>
+    </tr>
+  );
+}
+
+function Citations({ citations }: { citations: AuditLogEntry["citations"] }) {
+  if (citations.length === 0) {
+    return <p style={{ margin: 0, color: "#6b7280" }}>No chunks returned.</p>;
+  }
+  return (
+    <ul style={{ margin: 0, paddingLeft: "20px" }}>
+      {citations.map((c) => (
+        <li key={c.chunkId}>
+          chunk {c.chunkId} · document {c.documentId} · source {c.sourceId} ·
+          score {c.score.toFixed(3)}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function formatDepartment(department: AuditLogEntry["department"]): string {
+  return department ? (department.name ?? department.id) : "—";
+}
+
+function formatLatency(latencyMs: number | null): string {
+  return latencyMs === null ? "—" : `${latencyMs} ms`;
+}
+
+function formatDecision(decision: AuditLogEntry["policyDecision"]): string {
+  return decision === null
+    ? "No decision recorded"
+    : JSON.stringify(decision, null, 2);
 }
 
 function formatTime(iso: string): string {
