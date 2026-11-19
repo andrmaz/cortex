@@ -44,6 +44,7 @@ export default async function AdminLayout({
         <a href="/admin/users">Users</a>
         <a href="/admin/sources">Sources</a>
         <a href="/admin/policies">Policies</a>
+        <a href="/admin/audit-log">Audit log</a>
       </nav>
       {children}
     </>
