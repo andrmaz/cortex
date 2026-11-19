@@ -75,9 +75,12 @@ export function AuditLogFilters({
   );
 }
 
-/** datetime-local inputs take "YYYY-MM-DDTHH:mm"; filters carry ISO strings. */
+/** datetime-local inputs take UTC "YYYY-MM-DDTHH:mm"; filters carry ISO strings, possibly with offsets. */
 function toLocalInput(value?: string): string {
-  return value ? value.slice(0, 16) : "";
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime())
+    ? date.toISOString().slice(0, 16)
+    : "";
 }
 
 const formStyle: CSSProperties = {
