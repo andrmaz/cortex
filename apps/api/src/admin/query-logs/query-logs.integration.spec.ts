@@ -71,6 +71,7 @@ interface FindManyArgs {
   };
   orderBy: [{ createdAt: "desc" }, { id: "desc" }];
   take: number;
+  cursor?: { id: string };
 }
 
 // Emulates the Prisma filter/order/take semantics the service relies on.
@@ -97,16 +98,18 @@ function matchesRange(
 }
 
 function fakeFindMany(args: FindManyArgs) {
-  const { where } = args;
+  const { where, cursor } = args;
+  const sorted = store
+    .filter((r) => matchesWhere(r, where))
+    .sort(
+      (x, y) =>
+        y.createdAt.getTime() - x.createdAt.getTime() ||
+        y.id.localeCompare(x.id),
+    );
+  // Prisma includes the cursor row unless skip is set; the service sets no skip.
+  const start = cursor ? sorted.findIndex((r) => r.id === cursor.id) : 0;
   return Promise.resolve(
-    store
-      .filter((r) => matchesWhere(r, where))
-      .sort(
-        (x, y) =>
-          y.createdAt.getTime() - x.createdAt.getTime() ||
-          y.id.localeCompare(x.id),
-      )
-      .slice(0, args.take),
+    start < 0 ? [] : sorted.slice(start, start + args.take),
   );
 }
 
@@ -271,7 +274,11 @@ describe("Admin Query Logs Integration", () => {
       expect(ids(first.body)).toEqual(["d", "c"]);
       expect(first.body.nextCursor).toBe("b");
 
-      await get(`${BASE}?limit=2&cursor=b`).expect(200);
+      const second = await get(
+        `${BASE}?limit=2&cursor=${first.body.nextCursor}`,
+      ).expect(200);
+      expect(ids(second.body)).toEqual(["b", "a"]);
+      expect(second.body.nextCursor).toBeNull();
       expect(mockPrisma.queryLog.findMany).toHaveBeenLastCalledWith(
         expect.objectContaining({ cursor: { id: "b" }, take: 3 }),
       );

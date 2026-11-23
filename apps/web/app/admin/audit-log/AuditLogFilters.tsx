@@ -25,6 +25,7 @@ export function AuditLogFilters({
         <input
           type="datetime-local"
           name="from"
+          step="1"
           defaultValue={toLocalInput(values.from)}
           style={inputStyle}
         />
@@ -34,6 +35,7 @@ export function AuditLogFilters({
         <input
           type="datetime-local"
           name="to"
+          step="1"
           defaultValue={toLocalInput(values.to)}
           style={inputStyle}
         />
@@ -79,7 +81,7 @@ export function AuditLogFilters({
 function toLocalInput(value?: string): string {
   const date = value ? new Date(value) : null;
   return date && !Number.isNaN(date.getTime())
-    ? date.toISOString().slice(0, 16)
+    ? date.toISOString().slice(0, 19)
     : "";
 }
 
