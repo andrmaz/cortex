@@ -19,7 +19,7 @@ gh pr edit "$PR_NUMBER" \
   --attach "$AFTER_SCREENSHOT#After: settings page"
 ```
 
-Set each screenshot variable to the exact workspace-relative path from the QA evidence table. Check `gh pr edit --help` in the current environment first. Run the command without `--body` or `--body-file`: `--attach` appends the uploaded assets while keeping the existing PR body. Then reread the description:
+Set each screenshot variable to the exact workspace-relative path from the QA evidence table. Check `gh pr edit --help` in the current environment first. Read and retain the existing PR body before the attachment attempt. Run the command without `--body` or `--body-file`; then reread the description and compare the before and after bodies to verify existing content is preserved:
 
 ```sh
 gh pr view "$PR_NUMBER" --json body --jq .body

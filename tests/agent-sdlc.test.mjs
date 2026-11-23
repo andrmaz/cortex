@@ -213,11 +213,29 @@ test("qa skill saves UI screenshots at reusable paths and records them", async (
   assert.match(qa, /QA evidence/);
 });
 
+test("qa screenshot handoff respects the active schema and authorized roots", async () => {
+  const qa = await readRepoFile(".agents/skills/qa/SKILL.md");
+  assert.match(qa, /active screenshot tool.{0,30}schema/i);
+  assert.match(qa, /configured.{0,30}roots/i);
+  assert.match(qa, /path parameter/i);
+  assert.match(qa, /explicitly authorized/i);
+  assert.match(qa, /supported.{0,30}transfer/i);
+  assert.match(qa, /blocker/i);
+  assert.match(qa, /expected.{0,30}actual/i);
+  assert.match(qa, /readable.{0,30}image/i);
+  assert.match(qa, /ephemeral screenshot artifact/i);
+  assert.match(qa, /path traversal/i);
+  assert.match(qa, /silently.{0,30}permissions/i);
+});
+
 test("pr skill attaches QA screenshots without replacing the PR body", async () => {
   const pr = await readRepoFile(".agents/skills/pr/SKILL.md");
   assert.match(pr, /gh pr edit .*--attach/s);
   assert.match(pr, /without `--body` or `--body-file`/);
   assert.match(pr, /existing PR body/);
+  assert.match(pr, /compare.{0,80}(before|after)/i);
+  assert.match(pr, /gh pr edit --help/);
+  assert.match(pr, /exact workspace-relative path/i);
   assert.match(pr, /gh pr view .*--json body/s);
   assert.match(pr, /user-attachments\/assets/);
   assert.match(pr, /local path is not left in the body/);
