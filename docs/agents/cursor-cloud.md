@@ -21,9 +21,8 @@ the non-obvious caveats.
 - The API reads `process.env` directly (no dotenv autoload). Export vars before running: `set -a; . /workspace/.env; set +a`.
 - `/workspace/.env` exists (gitignored, persists in snapshot) with dev values for `DATABASE_URL` and `JWT_SECRET`. `JWT_SECRET` is required or `@cortex/api` fails to boot.
 
-## Migrations (Prisma 7 config gotcha)
+## Migrations
 
-- `prisma migrate deploy` / `db:migrate` fail with "datasource.url property is required": [`../../packages/db/prisma.config.ts`](../../packages/db/prisma.config.ts) uses `env["DATABASE_URL"]` which does not resolve from `process.env` in Prisma 7.
 - The committed migration SQL has already been applied to the DB. To re-apply on a fresh DB, run the files in `../../packages/db/prisma/migrations/*/migration.sql` directly with `psql`.
 
 ## Running the API end-to-end (known gaps as committed)
