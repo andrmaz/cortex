@@ -18,6 +18,8 @@ For non-skill agents, treat the task map below as the local onboarding source: r
 
 ## Fallow task map
 
+With workspace dependencies installed, run this table's Fallow commands from the workspace root with `pnpm exec` prepended.
+
 | When the agent is about to...                                     | Run                                                                                                                                                     |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | delete an "unused" export or file                                 | `fallow dead-code --trace <file>:<export>`                                                                                                              |
