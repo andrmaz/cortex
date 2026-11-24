@@ -13,9 +13,11 @@ This pointer skill was written by `fallow agent install`. The complete, version-
 - `node_modules/fallow/skills/fallow/SKILL.md` (start here)
 - `node_modules/fallow/skills/fallow/references/` (CLI reference, MCP tools, patterns, gotchas)
 
-Read that `SKILL.md` before running fallow. Resolve current flags from `fallow --help` and `fallow <command> --help`, never from memory.
+Read that `SKILL.md` before running fallow. Resolve current flags from `pnpm exec fallow --help` and `pnpm exec fallow <command> --help`, never from memory.
 
 ## Fallow task map
+
+With workspace dependencies installed, run this table's Fallow commands from the workspace root with `pnpm exec` prepended.
 
 | When the agent is about to...                                     | Run                                                                                                                                                     |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |

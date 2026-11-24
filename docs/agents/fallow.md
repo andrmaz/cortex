@@ -7,7 +7,7 @@ Fallow provides repository-wide dead-code, dependency, duplication, complexity, 
 Before any `git commit` or `git push`, run:
 
 ```bash
-fallow audit --format json --quiet --explain --gate-marker agent
+pnpm exec fallow audit --format json --quiet --explain --gate-marker agent
 ```
 
 If the verdict is `fail`, fix the reported findings before retrying. Treat JSON runtime errors like `{ "error": true, ... }` as non-blocking.
@@ -17,6 +17,8 @@ Audit defaults to `gate=new-only`: only findings introduced by the current chang
 For non-skill agents, treat the task map below as the local onboarding source: run the listed Fallow command before destructive edits, before commits, and before pull request handoff.
 
 ## Fallow task map
+
+With workspace dependencies installed, run this table's Fallow commands from the workspace root with `pnpm exec` prepended.
 
 | When the agent is about to...                                     | Run                                                                                                                                                     |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |

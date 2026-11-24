@@ -23,4 +23,3 @@ Run commands from repo root unless otherwise specified.
 
 - `apps/api` does not yet provide stable package-local `dev`/`build`/`lint` scripts.
 - `packages/db` has no production-ready migration or test automation scripts yet.
-- `pnpm --filter @cortex/api test` and `pnpm --filter db test` are placeholder scripts that intentionally fail.

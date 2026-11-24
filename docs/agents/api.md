@@ -7,8 +7,6 @@
 
 ## Implementation rules
 
-- Keep controllers thin.
-- Put business logic in modules/services.
 - Avoid direct DB access from controllers.
 - Preserve MCP-first behavior when introducing API changes.
 - Admin Policy API and JSON configuration are documented in [`../policies.md`](../policies.md).
