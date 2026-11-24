@@ -35,5 +35,5 @@ Fully running the API therefore requires small code/config fixes (correct the `d
 
 ## Tests
 
-- `pnpm test` passes (`@cortex/shared` 21, `@cortex/api` 53). The "API/DB test scripts intentionally fail" note in [`testing.md`](./testing.md) is outdated for `@cortex/api`; `db` simply has no `test` script.
+- `pnpm test` passes (`@cortex/shared` 21, `@cortex/api` 53).
 - API tests mock `db/client` ([`../../apps/api/src/__mocks__/db-client.mock.ts`](../../apps/api/src/__mocks__/db-client.mock.ts)), so they need no database.
