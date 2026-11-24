@@ -11,8 +11,8 @@ author wireframes from memory or paraphrase these rules per command.
 content.** Set `data.html` to a self-contained, semantic HTML fragment of the
 screen and set `data.surface`. The renderer owns the surface footprint/aspect,
 the dark/light theme, the hand-drawn font, and the rough.js sketch overlay — you
-never write `<html>`/`<body>`/`<script>`/`<style>` tags or any
-width/height/coordinates. You write real HTML layout and real product
+never write `<html>`/`<body>`/`<script>`/`<style>` tags or coordinates.
+You write real HTML layout and real product
 content; the renderer styles and roughens it.
 
 **A wireframe block's data is an HTML screen plus a surface:**
