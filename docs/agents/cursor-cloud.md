@@ -7,7 +7,7 @@ the non-obvious caveats.
 ## Services
 
 - `@cortex/api` (NestJS, port 4000) — core product (MCP entrypoint + auth). Needs Postgres + env vars.
-- `@cortex/web` (Next.js, port 3000) and `@cortex/docs` (port 3001) — run cleanly via `pnpm --filter @cortex/web dev` / `--filter @cortex/docs dev`. Currently default Turborepo starter pages.
+- `@cortex/web` (Next.js, port 3000) and `@cortex/docs` (port 3001) — run cleanly via `pnpm --filter @cortex/web dev` / `--filter @cortex/docs dev`.
 - Standard commands (`pnpm lint|check-types|build|test|dev`) are in [`commands.md`](./commands.md). All pass.
 
 ## PostgreSQL (installed natively, not Docker)
