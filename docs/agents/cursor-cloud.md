@@ -31,7 +31,7 @@ The API builds, type-checks, lints, and its 53 Vitest tests pass, but it cannot 
 
 - [`../../apps/api/tsconfig.json`](../../apps/api/tsconfig.json) `paths` map `db/client` to a `.ts` source file; `nest build`/`nest start` emit a require to that `.ts`, so `node dist/...` and `nest start --watch` fail (this is the "dev/build not stable yet" note in [`commands.md`](./commands.md)). The runnable compiled entry is `apps/api/dist/apps/api/src/main.js`, not `dist/main.js`.
 
-Fully running the API therefore requires small code/config fixes (wire `@prisma/adapter-pg` into `PrismaService`, correct the `db` package paths/exports). Until then, prefer the unit tests and the web/docs apps for verification.
+Fully running the API therefore requires small code/config fixes (correct the `db` package paths/exports). Until then, prefer the unit tests and the web/docs apps for verification.
 
 ## Tests
 
