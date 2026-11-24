@@ -7,7 +7,7 @@ Fallow provides repository-wide dead-code, dependency, duplication, complexity, 
 Before any `git commit` or `git push`, run:
 
 ```bash
-fallow audit --format json --quiet --explain --gate-marker agent
+pnpm exec fallow audit --format json --quiet --explain --gate-marker agent
 ```
 
 If the verdict is `fail`, fix the reported findings before retrying. Treat JSON runtime errors like `{ "error": true, ... }` as non-blocking.
