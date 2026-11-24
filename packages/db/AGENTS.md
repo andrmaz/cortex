@@ -12,7 +12,3 @@ This file overrides root guidance for this subtree.
 - Shared testing rules: [`../../docs/agents/testing.md`](../../docs/agents/testing.md)
 - Shared security rules: [`../../docs/agents/security.md`](../../docs/agents/security.md)
 - DB-specific guidance: [`../../docs/agents/db.md`](../../docs/agents/db.md)
-
-## Local notes
-
-- `pnpm --filter db test` is currently a placeholder script that intentionally fails.
