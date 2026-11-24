@@ -15,5 +15,4 @@ This file overrides root guidance for this subtree.
 
 ## Local notes
 
-- `@cortex/api` test script is currently a placeholder and intentionally fails.
 - Package-local `dev`/`build` scripts are not stable yet; prefer root orchestration commands.
